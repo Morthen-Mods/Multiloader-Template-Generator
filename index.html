@@ -35,7 +35,7 @@
 
 <form class="app-main" id="config-form" autocomplete="off" onsubmit="return false">
 
-  <!-- ───────────────── column 1: identity + publishing ───────────────── -->
+  <!-- ───────────────── column 1: the mod itself ───────────────── -->
   <div class="col">
     <section class="card">
       <div class="card-head">Mod</div>
@@ -102,112 +102,6 @@
           </div>
           <div class="error" data-error-for="rootProjectName"></div>
         </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">Publishing &amp; links</div>
-      <div class="card-body">
-        <label class="toggle wide" title="Configures mod-publish-plugin for Modrinth and CurseForge (./gradlew publishMods). API tokens come from the MODRINTH_API / CURSEFORGE_API environment variables.">
-          <input type="checkbox" data-key="modPublish">
-          <span class="t-label">Mod publishing (mod-publish-plugin)</span>
-        </label>
-        <div class="field" data-show-if="modPublish">
-          <label for="f-modrinthId">Modrinth project ID</label>
-          <input type="text" id="f-modrinthId" class="mono" data-key="modrinthId" placeholder="e.g. AANobbMI" spellcheck="false">
-        </div>
-        <div class="field" data-show-if="modPublish">
-          <label for="f-curseforgeId">CurseForge project ID</label>
-          <input type="text" id="f-curseforgeId" class="mono" data-key="curseforgeId" placeholder="e.g. 123456" spellcheck="false">
-        </div>
-        <div class="field">
-          <label for="f-sourcesUrl">Source repository URL</label>
-          <input type="text" id="f-sourcesUrl" class="mono" data-key="sourcesUrl" placeholder="https://github.com/you/your-mod" spellcheck="false">
-          <div class="error" data-error-for="sourcesUrl"></div>
-        </div>
-        <div class="field">
-          <label for="f-issuesUrl">Issue tracker URL <span class="auto" data-auto-label="issuesUrl">auto</span></label>
-          <div class="with-button">
-            <input type="text" id="f-issuesUrl" class="mono" data-key="issuesUrl" data-auto="issuesUrl" placeholder="https://github.com/you/your-mod/issues" spellcheck="false">
-            <button type="button" class="reset-auto" data-reset-auto="issuesUrl" title="Derive from the source URL again">↺</button>
-          </div>
-          <div class="error" data-error-for="issuesUrl"></div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- ───────────────── column 2: versions + assets ───────────────── -->
-  <div class="col">
-    <section class="card" id="versions-card">
-      <div class="card-head">
-        <span>Minecraft &amp; loader versions</span>
-        <button type="button" class="btn tiny" id="btn-refresh-versions" title="Fetch the version lists again">Refresh</button>
-        <span class="versions-status loading" id="versions-status">
-          <span class="dot"></span><span id="versions-status-text">Loading version lists…</span>
-        </span>
-      </div>
-      <div class="card-body">
-        <div class="field">
-          <label for="f-minecraftVersion">Minecraft <span class="auto" data-auto-label="minecraftVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-minecraftVersion" data-key="minecraftVersion" data-versions="minecraftVersion" title="Choosing a version selects the newest matching loader builds."></select><button type="button" class="reset-auto" data-reset-auto="minecraftVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="minecraftVersion" placeholder="e.g. 26.3-rc-1" spellcheck="false" hidden>
-          </div>
-          <label class="inline-check" title="Also list snapshots, pre-releases and release candidates"><input type="checkbox" id="opt-snapshots"> Include snapshots</label>
-          <div class="error" data-error-for="minecraftVersion"></div>
-        </div>
-        <div class="field">
-          <label for="f-neoformVersion">NeoForm <span class="auto" data-auto-label="neoformVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-neoformVersion" data-key="neoformVersion" data-versions="neoformVersion" title="Used by the common project."></select><button type="button" class="reset-auto" data-reset-auto="neoformVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="neoformVersion" placeholder="e.g. 26.2-2" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="neoformVersion" hidden></div>
-          <div class="error" data-error-for="neoformVersion"></div>
-        </div>
-        <div class="field" data-show-if="loaders.neoforge|datagen">
-          <label for="f-neoforgeVersion">NeoForge <span class="auto" data-auto-label="neoforgeVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-neoforgeVersion" data-key="neoforgeVersion" data-versions="neoforgeVersion" title="Also used by the datagen module."></select><button type="button" class="reset-auto" data-reset-auto="neoforgeVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="neoforgeVersion" placeholder="e.g. 26.2.0.86" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="neoforgeVersion" hidden></div>
-          <div class="error" data-error-for="neoforgeVersion"></div>
-        </div>
-        <div class="field" data-show-if="loaders.fabric">
-          <label for="f-fabricLoaderVersion">Fabric Loader <span class="auto" data-auto-label="fabricLoaderVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-fabricLoaderVersion" data-key="fabricLoaderVersion" data-versions="fabricLoaderVersion" title="Independent of the Minecraft version."></select><button type="button" class="reset-auto" data-reset-auto="fabricLoaderVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="fabricLoaderVersion" placeholder="e.g. 0.19.5" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="fabricLoaderVersion" hidden></div>
-          <div class="error" data-error-for="fabricLoaderVersion"></div>
-        </div>
-        <div class="field" data-show-if="loaders.fabric">
-          <label for="f-fabricApiVersion">Fabric API <span class="auto" data-auto-label="fabricApiVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-fabricApiVersion" data-key="fabricApiVersion" data-versions="fabricApiVersion"></select><button type="button" class="reset-auto" data-reset-auto="fabricApiVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="fabricApiVersion" placeholder="e.g. 0.160.0+26.2" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="fabricApiVersion" hidden></div>
-          <div class="error" data-error-for="fabricApiVersion"></div>
-        </div>
-        <div class="field" data-show-if="loaders.forge">
-          <label for="f-forgeVersion">Forge <span class="auto" data-auto-label="forgeVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-forgeVersion" data-key="forgeVersion" data-versions="forgeVersion"></select><button type="button" class="reset-auto" data-reset-auto="forgeVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="forgeVersion" placeholder="e.g. 65.1.3" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="forgeVersion" hidden></div>
-          <div class="error" data-error-for="forgeVersion"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">Icon &amp; banner <span class="hint">optional · placed in common/src/main/resources</span></div>
-      <div class="card-body">
         <div class="asset wide">
           <label for="f-icon"><strong>Icon</strong> · <span class="mono" data-asset-name="icon"></span></label>
           <div class="drop">
@@ -230,33 +124,119 @@
     </section>
   </div>
 
-  <!-- ───────────────── column 3: loaders/features + build tooling ───────────────── -->
+  <!-- ───────────────── column 2: what the mod targets ───────────────── -->
   <div class="col">
+    <section class="card" id="versions-card">
+      <div class="card-head">
+        <span>Minecraft</span>
+        <button type="button" class="btn tiny" id="btn-refresh-versions" title="Fetch the version lists again">Refresh</button>
+        <span class="versions-status loading" id="versions-status">
+          <span class="dot"></span><span id="versions-status-text">Loading version lists…</span>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label for="f-minecraftVersion">Minecraft <span class="auto" data-auto-label="minecraftVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-minecraftVersion" data-key="minecraftVersion" data-versions="minecraftVersion" title="Choosing a version selects the newest matching loader builds and the Java version it requires."></select><button type="button" class="reset-auto" data-reset-auto="minecraftVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="minecraftVersion" placeholder="e.g. 26.3-rc-1" spellcheck="false" hidden>
+          </div>
+          <label class="inline-check" title="Also list snapshots, pre-releases and release candidates"><input type="checkbox" id="opt-snapshots"> Include snapshots</label>
+          <div class="error" data-error-for="minecraftVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-neoformVersion">NeoForm <span class="auto" data-auto-label="neoformVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-neoformVersion" data-key="neoformVersion" data-versions="neoformVersion" title="Used by the common project."></select><button type="button" class="reset-auto" data-reset-auto="neoformVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="neoformVersion" placeholder="e.g. 26.2-2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="neoformVersion" hidden></div>
+          <div class="error" data-error-for="neoformVersion"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="card">
-      <div class="card-head">Loaders &amp; features</div>
+      <div class="card-head">Loaders <span class="hint">each with its own versions</span></div>
       <div class="card-body">
         <div class="loader-grid wide">
           <label class="loader-chip" data-chip="fabric">
             <input type="checkbox" data-key="loaders.fabric">
             <span class="name">Fabric</span>
-            <span class="ver" data-version-of="fabricApiVersion"></span>
             <span class="ver unsupported-note" data-unsupported-note="fabric" hidden></span>
           </label>
           <label class="loader-chip" data-chip="forge">
             <input type="checkbox" data-key="loaders.forge">
             <span class="name">Forge</span>
-            <span class="ver" data-version-of="forgeVersion"></span>
             <span class="ver unsupported-note" data-unsupported-note="forge" hidden></span>
           </label>
           <label class="loader-chip" data-chip="neoforge">
             <input type="checkbox" data-key="loaders.neoforge">
             <span class="name">NeoForge</span>
-            <span class="ver" data-version-of="neoforgeVersion"></span>
             <span class="ver unsupported-note" data-unsupported-note="neoforge" hidden></span>
           </label>
           <div class="loader-error error" data-error-for="loaders"></div>
         </div>
 
+        <div class="field" data-show-if="loaders.fabric">
+          <label for="f-fabricLoaderVersion">Fabric Loader <span class="auto" data-auto-label="fabricLoaderVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-fabricLoaderVersion" data-key="fabricLoaderVersion" data-versions="fabricLoaderVersion" title="Independent of the Minecraft version."></select><button type="button" class="reset-auto" data-reset-auto="fabricLoaderVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="fabricLoaderVersion" placeholder="e.g. 0.19.5" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="fabricLoaderVersion" hidden></div>
+          <div class="error" data-error-for="fabricLoaderVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.fabric">
+          <label for="f-fabricApiVersion">Fabric API <span class="auto" data-auto-label="fabricApiVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-fabricApiVersion" data-key="fabricApiVersion" data-versions="fabricApiVersion"></select><button type="button" class="reset-auto" data-reset-auto="fabricApiVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="fabricApiVersion" placeholder="e.g. 0.160.0+26.2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="fabricApiVersion" hidden></div>
+          <div class="error" data-error-for="fabricApiVersion"></div>
+        </div>
+        <label class="toggle wide" data-show-if="loaders.fabric" title="Adds the Mod Menu dependency to the Fabric project and lists it as an optional dependency when publishing.">
+          <input type="checkbox" data-key="modMenu">
+          <span class="t-label">Mod Menu</span>
+        </label>
+        <div class="field wide" data-show-if="loaders.fabric&amp;modMenu">
+          <label for="f-modMenuVersion">Mod Menu version <span class="auto" data-auto-label="modMenuVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-modMenuVersion" data-key="modMenuVersion" data-versions="modMenuVersion"></select><button type="button" class="reset-auto" data-reset-auto="modMenuVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="modMenuVersion" placeholder="e.g. 20.0.2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="modMenuVersion" hidden></div>
+          <div class="error" data-error-for="modMenuVersion"></div>
+        </div>
+
+        <div class="field" data-show-if="loaders.forge">
+          <label for="f-forgeVersion">Forge <span class="auto" data-auto-label="forgeVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-forgeVersion" data-key="forgeVersion" data-versions="forgeVersion"></select><button type="button" class="reset-auto" data-reset-auto="forgeVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="forgeVersion" placeholder="e.g. 65.1.3" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="forgeVersion" hidden></div>
+          <div class="error" data-error-for="forgeVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.neoforge|datagen">
+          <label for="f-neoforgeVersion">NeoForge <span class="auto" data-auto-label="neoforgeVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-neoforgeVersion" data-key="neoforgeVersion" data-versions="neoforgeVersion" title="Also used by the datagen module."></select><button type="button" class="reset-auto" data-reset-auto="neoforgeVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="neoforgeVersion" placeholder="e.g. 26.2.0.86" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="neoforgeVersion" hidden></div>
+          <div class="error" data-error-for="neoforgeVersion"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ───────────────── column 3: contents and output ───────────────── -->
+  <div class="col">
+    <section class="card">
+      <div class="card-head">Project contents</div>
+      <div class="card-body">
         <label class="toggle" title="NeoForge-based datagen subproject with an example recipe and tag provider. Output goes to common/src/generated.">
           <input type="checkbox" data-key="datagen">
           <span class="t-label">Datagen module</span>
@@ -274,28 +254,55 @@
           <input type="checkbox" data-key="mixins">
           <span class="t-label">Mixins</span>
         </label>
-        <label class="toggle" title="Ships common/runs with sensible options.txt, server.properties and eula.txt for the run configurations.">
+        <label class="toggle wide" title="Ships common/runs with sensible options.txt, server.properties and eula.txt for the run configurations.">
           <input type="checkbox" data-key="includeRunDefaults">
           <span class="t-label">Dev run defaults</span>
         </label>
-        <label class="toggle" data-show-if="loaders.fabric" title="Adds the Mod Menu dependency to the Fabric project and lists it as an optional dependency when publishing.">
-          <input type="checkbox" data-key="modMenu">
-          <span class="t-label">Mod Menu (Fabric)</span>
-        </label>
-        <div class="field" data-show-if="loaders.fabric&amp;modMenu">
-          <label for="f-modMenuVersion">Mod Menu version <span class="auto" data-auto-label="modMenuVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-modMenuVersion" data-key="modMenuVersion" data-versions="modMenuVersion"></select><button type="button" class="reset-auto" data-reset-auto="modMenuVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="modMenuVersion" placeholder="e.g. 20.0.2" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="modMenuVersion" hidden></div>
-          <div class="error" data-error-for="modMenuVersion"></div>
-        </div>
       </div>
     </section>
 
     <section class="card">
-      <div class="card-head">Build tooling <span class="hint">newest releases by default</span></div>
+      <div class="card-head">Publishing</div>
+      <div class="card-body">
+        <label class="toggle wide" title="Configures mod-publish-plugin for Modrinth and CurseForge (./gradlew publishMods). API tokens come from the MODRINTH_API / CURSEFORGE_API environment variables.">
+          <input type="checkbox" data-key="modPublish">
+          <span class="t-label">Publish to Modrinth / CurseForge</span>
+        </label>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-modrinthId">Modrinth project ID</label>
+          <input type="text" id="f-modrinthId" class="mono" data-key="modrinthId" placeholder="e.g. AANobbMI" spellcheck="false">
+        </div>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-curseforgeId">CurseForge project ID</label>
+          <input type="text" id="f-curseforgeId" class="mono" data-key="curseforgeId" placeholder="e.g. 123456" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="f-sourcesUrl">Source repository URL</label>
+          <input type="text" id="f-sourcesUrl" class="mono" data-key="sourcesUrl" placeholder="https://github.com/you/your-mod" spellcheck="false">
+          <div class="error" data-error-for="sourcesUrl"></div>
+        </div>
+        <div class="field">
+          <label for="f-issuesUrl">Issue tracker URL <span class="auto" data-auto-label="issuesUrl">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-issuesUrl" class="mono" data-key="issuesUrl" data-auto="issuesUrl" placeholder="https://github.com/you/your-mod/issues" spellcheck="false">
+            <button type="button" class="reset-auto" data-reset-auto="issuesUrl" title="Derive from the source URL again">↺</button>
+          </div>
+          <div class="error" data-error-for="issuesUrl"></div>
+        </div>
+        <div class="field wide" data-show-if="modPublish">
+          <label for="f-modPublishPluginVersion">mod-publish-plugin <span class="auto" data-auto-label="modPublishPluginVersion" data-auto-word="latest">latest</span></label>
+          <div class="select-custom">
+            <div class="with-button"><select id="f-modPublishPluginVersion" data-key="modPublishPluginVersion" data-versions="modPublishPluginVersion"></select><button type="button" class="reset-auto" data-reset-auto="modPublishPluginVersion" title="Use the newest version again">↺</button></div>
+            <input type="text" class="mono" data-custom-for="modPublishPluginVersion" placeholder="e.g. 2.2.0" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="modPublishPluginVersion" hidden></div>
+          <div class="error" data-error-for="modPublishPluginVersion"></div>
+        </div>
+      </div>
+    </section>
+
+    <details class="card" id="build-tooling">
+      <summary>Build tooling <span class="hint">newest releases by default</span></summary>
       <div class="card-body">
         <div class="field">
           <label for="f-gradleVersion">Gradle <span class="auto" data-auto-label="gradleVersion" data-auto-word="latest">latest</span></label>
@@ -350,16 +357,7 @@
           <div class="help" data-versions-note="forgeGradleVersion" hidden></div>
           <div class="error" data-error-for="forgeGradleVersion"></div>
         </div>
-        <div class="field" data-show-if="modPublish">
-          <label for="f-modPublishPluginVersion">mod-publish-plugin <span class="auto" data-auto-label="modPublishPluginVersion" data-auto-word="latest">latest</span></label>
-          <div class="select-custom">
-            <div class="with-button"><select id="f-modPublishPluginVersion" data-key="modPublishPluginVersion" data-versions="modPublishPluginVersion"></select><button type="button" class="reset-auto" data-reset-auto="modPublishPluginVersion" title="Use the newest version again">↺</button></div>
-            <input type="text" class="mono" data-custom-for="modPublishPluginVersion" placeholder="e.g. 2.2.0" spellcheck="false" hidden>
-          </div>
-          <div class="help" data-versions-note="modPublishPluginVersion" hidden></div>
-          <div class="error" data-error-for="modPublishPluginVersion"></div>
-        </div>
-        <div class="field">
+        <div class="field wide">
           <label for="f-foojayVersion">Foojay toolchain resolver <span class="auto" data-auto-label="foojayVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
             <div class="with-button"><select id="f-foojayVersion" data-key="foojayVersion" data-versions="foojayVersion"></select><button type="button" class="reset-auto" data-reset-auto="foojayVersion" title="Use the newest version again">↺</button></div>
@@ -369,7 +367,7 @@
           <div class="error" data-error-for="foojayVersion"></div>
         </div>
       </div>
-    </section>
+    </details>
   </div>
 </form>
 

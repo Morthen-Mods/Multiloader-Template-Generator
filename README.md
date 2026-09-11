@@ -14,12 +14,16 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 | Loaders | any combination of Fabric, Forge and NeoForge |
 | Features | datagen module, game tests, test mod, mixins, Mod Menu dependency (Fabric), dev run defaults |
 | Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
-| Assets | mod icon and banner PNGs (placed in `common/src/main/resources`) |
-| Versions | Minecraft (26.1+, snapshots optional), Java, NeoForm, NeoForge, Fabric Loader/API, Forge, Mod Menu, all as dropdowns filled from the official version lists and defaulting to the newest entry |
+| Assets | mod icon and banner PNGs (placed in `common/src/main/resources`), in the Mod card |
+| Versions | Minecraft (26.1+, snapshots optional), NeoForm, and per loader its own versions, all as dropdowns filled from the official version lists and defaulting to the newest entry. The Java version is not a choice: it comes from Mojang's manifest for the selected Minecraft version |
 | Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin, ModDevGradle, Fabric Loom, ForgeGradle, mod-publish-plugin and the Foojay resolver (dropdowns fed from the respective release lists) |
 
 Derived fields (mod ID, base package, class prefix, project name, issue URL) follow the fields they are based on
 until you edit them; the `↺` button switches a field back to automatic.
+
+The form is laid out in three columns: the mod itself on the left, what it targets in the middle (Minecraft, and
+the loaders each carrying their own versions), and what goes into it plus how it is built on the right. The build
+tooling card starts collapsed, because its versions follow the newest releases on their own.
 
 The current configuration is encoded in the URL fragment, so a link to the page restores it (binary assets
 excluded; fields on *latest* are not pinned in the link and resolve to whatever is newest when it is opened). **Copy link** puts that URL on the clipboard.

@@ -131,7 +131,26 @@ input, select, textarea { font: inherit; color: inherit; }
   gap: 8px;
   flex-wrap: wrap;
 }
-.card-head .hint { font-weight: 400; color: var(--muted); font-size: 15.82px; }
+.card-head .hint, .card > summary .hint { font-weight: 400; color: var(--muted); font-size: 15.82px; }
+
+/* collapsible card (build tooling): its summary is the card head */
+.card > summary {
+  padding: 6px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.card > summary::-webkit-details-marker { display: none; }
+.card > summary::after { content: "▸"; color: var(--muted); transition: transform 0.15s; }
+.card[open] > summary::after { transform: rotate(90deg); }
+.card:not([open]) > summary { border-bottom: none; }
+.card > summary:hover { color: var(--accent); }
 .card-body { padding: 8px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; align-content: start; }
 .card-body .wide, .card-body .field.wide { grid-column: 1 / -1; }
 
