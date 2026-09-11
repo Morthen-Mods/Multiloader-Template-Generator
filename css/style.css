@@ -189,7 +189,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .asset input[type="file"]::file-selector-button {
   font: inherit;
   font-weight: 600;
-  padding: 7px 13px;
+  padding: 3px 13px;
   margin-right: 10px;
   border: 1px solid var(--accent);
   border-radius: 8px;
