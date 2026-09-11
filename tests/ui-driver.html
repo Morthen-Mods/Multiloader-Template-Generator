@@ -88,7 +88,12 @@
     };
     if (snap) {
       setSelect('f-minecraftVersion', snap);
-      await sleep(200);
+      // the dependent fields are filled from the catalog, so wait for them to settle instead of guessing a delay
+      await waitFor(() => {
+        const nf = val('f-neoformVersion');
+        const note = $('[data-versions-note="neoformVersion"]');
+        return (nf && nf.startsWith(snap + '-')) || (note && !note.hidden);
+      }, 'loader fields for ' + snap);
       results.snapshot = { mc: snap, neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion') };
       await waitFor(() => new RegExp('MC ' + snap.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test($('#summary').textContent), 'summary for snapshot');
       results.snapshotChips = chips();

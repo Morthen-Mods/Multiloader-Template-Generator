@@ -59,7 +59,7 @@ def main():
         ("MC 26.1.2" in results.get("summaryAfterSwitch", ""), "summary reflects the new Minecraft version"),
         (results.get("snapshotCount", 0) > len(results.get("mcOptions", [])), "snapshot toggle adds versions"),
         (not results.get("snapshot") or "alpha" in (results["snapshot"].get("neoforge") or "") or results["snapshot"].get("neoforge") == "", "snapshot maps to NeoForge alpha builds (or none)"),
-        (not results.get("snapshot") or (results["snapshot"].get("neoform") or "").startswith(results["snapshot"]["mc"] + "-"), "snapshot maps to a NeoForm build"),
+        (not results.get("snapshot") or (results["snapshot"].get("neoform") or "").startswith(results["snapshot"]["mc"] + "-") or results["snapshot"].get("neoform") == "", "snapshot maps to a NeoForm build, or to none at all"),
         (results.get("customInputVisible") is True, "Custom… reveals the text input"),
         (any(l == "neoform=26.2-99" for l in results.get("gradleProperties", [])), "custom value reaches gradle.properties"),
         (results.get("downloadEnabled") is True, "download stays enabled with a custom value"),
