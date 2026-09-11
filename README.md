@@ -1,0 +1,143 @@
+# Multiloader Mod Project Generator
+
+A static web tool that turns the [Morthen-Mods Multiloader-Template](https://github.com/Morthen-Mods/Multiloader-Template)
+into a ready-to-build Minecraft mod project. Fill in the single-screen form, download a ZIP.
+
+Everything runs in the browser. There is no backend, nothing is uploaded, and the page works from a plain
+`file://` URL as well as from any static host (GitHub Pages, Netlify, an S3 bucket, …).
+
+## What you can configure
+
+| Group | Options |
+| --- | --- |
+| Mod | name, mod ID, author, version, description, license (MIT, Apache-2.0, MPL-2.0, LGPL-3.0, GPL-3.0, all-rights-reserved, none), Maven group, Java base package, class prefix, project name |
+| Loaders | any combination of Fabric, Forge and NeoForge |
+| Features | datagen module, game tests, test mod, mixins, Mod Menu dependency (Fabric), dev run defaults |
+| Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
+| Assets | mod icon and banner PNGs (placed in `common/src/main/resources`) |
+| Versions | Minecraft (26.1+, snapshots optional), Java, NeoForm, NeoForge, Fabric Loader/API, Forge, Mod Menu, all as dropdowns filled from the official version lists |
+| Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin, ModDevGradle, Fabric Loom, ForgeGradle, mod-publish-plugin and the Foojay resolver (dropdowns fed from the respective release lists) |
+
+Derived fields (mod ID, base package, class prefix, project name, issue URL) follow the fields they are based on
+until you edit them; the `↺` button switches a field back to automatic.
+
+The current configuration is encoded in the URL fragment, so a link to the page restores it (binary assets
+excluded). **Copy link** puts that URL on the clipboard.
+
+## How the generation works
+
+`scripts/bake.py` snapshots the upstream template into `js/template-data.js` (all files, the wrapper jar as
+base64, plus the license texts from `licenses/`). At runtime `js/generator.js` transforms that snapshot:
+
+* Java package directories and identifiers (`net.morthen.template`, and the `net.morthen.example` game test
+  package, which is folded into the same base package) are moved to the configured base package.
+* The example classes `TemplateMod`, `TemplateProvider` and `TemplateTest` are renamed with the class prefix,
+  `MOD_ID` / `MOD_NAME` constants and the `template:` namespace in generated data are replaced.
+* Resource files are renamed (`<mod id>.mixins.json`, `<mod id>.classtweaker`, `data/<mod id>/…`), and the
+  `META-INF/services` file for `IPlatformHelper` gets the new fully qualified name.
+* `gradle.properties`, `settings.gradle.kts`, the root and per-module `build.gradle.kts`, the wrapper
+  properties, `README.md`, `CHANGELOG.md` and `LICENSE` are generated from the configuration. With the template's
+  own values they reproduce the upstream files byte for byte (this is covered by a test).
+* Disabled loaders and features are removed consistently: subproject folders, `settings.gradle.kts` includes,
+  loader Gradle plugins in the root build script, `withTestMod()` / `withGametest()` / `withModPublish()` calls,
+  mixin configs and their references in `fabric.mod.json` / `neoforge.mods.toml` / `forgeMixins`.
+* Minecraft's datagen `.cache` files are recomputed (SHA-1 of provider name and file contents) so the first
+  `runData` does not see stale entries.
+* `gradlew` is marked executable inside the ZIP.
+
+All version defaults are read from the snapshot, so re-baking a newer template updates the defaults without
+touching the generator.
+
+## Version lists
+
+The Minecraft, Java, NeoForm, NeoForge, Forge, Fabric Loader, Fabric API and Mod Menu fields, and the build
+tooling versions under "Build tooling", are dropdowns.
+Their contents are fetched in the browser when the page opens (cached in `localStorage` for an hour, the
+**Refresh** button bypasses the cache):
+
+| Data | Source |
+| --- | --- |
+| Minecraft versions (26.1 and newer; snapshots optional) and the required Java version | Mojang's `version_manifest_v2.json` and the per-version manifests |
+| NeoForm, NeoForge | `maven.neoforged.net` version API |
+| Forge | `maven.minecraftforge.net` Maven metadata |
+| Fabric API | `maven.fabricmc.net` Maven metadata |
+| Fabric Loader | `meta.fabricmc.net` |
+| Mod Menu | Modrinth API, per Minecraft version |
+| Gradle | `services.gradle.org/versions/all` (final releases from 8.0) |
+| Multiloader plugin | `maven.morthen.net` version API |
+| ModDevGradle | `maven.neoforged.net` version API |
+| Fabric Loom | `maven.fabricmc.net` Maven metadata (releases plus the `x.y-SNAPSHOT` lines) |
+| ForgeGradle | `maven.minecraftforge.net` plugin-marker metadata |
+| mod-publish-plugin | Gradle Plugin Portal; it sends no CORS headers, so this list only comes from the bundled catalog |
+| Foojay resolver | GitHub tags of `gradle/foojay-toolchains` |
+
+Picking a Minecraft version selects the newest matching build for every dependent field; every dropdown also
+has a *Custom…* entry for typing a version by hand. Loaders without a build for the chosen version (for example
+Forge and NeoForge on a fresh snapshot) are switched off and greyed out, as is the datagen module when NeoForge
+is unavailable; the previous selection returns when a supported version is chosen again. Hand-typed versions the
+manifest does not know are never restricted. The mapping rules (for example NeoForge `26.1.2.<build>` for
+Minecraft `26.1.2`, `26.3.0.0-alpha.<n>+rc-1` for the `26.3-rc-1` snapshot, Fabric API `+26.3` for 26.3
+snapshots) live in `js/versions.js`.
+
+`js/versions-data.js` is a bundled copy of those lists. It fills the dropdowns before the live fetch finishes
+and is the fallback when a server cannot be reached. Regenerate it with:
+
+```
+scripts/bake-versions.py      # runs js/versions.js in headless Chrome and writes js/versions-data.js
+```
+
+The bake runs Chrome with web security disabled so it can also read the Gradle Plugin Portal; the page itself
+never does that. The build tooling dropdowns show the newest ten versions of each tool (plus the template's
+pinned entry); older versions can still be typed in via *Custom…*.
+
+## Running locally
+
+Open `index.html` in a browser. No build step, no dependencies beyond the vendored `vendor/jszip.min.js`.
+
+## Deploying
+
+Copy the repository contents (everything except `scripts/`, `tests/` and `licenses/` is needed at runtime) to
+any static host. For GitHub Pages: push the repository and enable Pages for the branch root.
+
+## Updating the template snapshot
+
+```
+scripts/bake.py                 # clones the upstream default branch
+scripts/bake.py --ref <tag>     # a specific tag / branch / commit
+scripts/bake.py --source ../Multiloader-Template   # a local checkout
+```
+
+Commit the regenerated `js/template-data.js` afterwards and run the tests. If the upstream template renames its
+example mod (currently `template` / `Template` / `net.morthen.template`), update the `T` constants at the top of
+`js/generator.js`.
+
+## Tests
+
+`tests/run_tests.py` drives `tests/harness.html` in headless Chrome for every configuration in
+`tests/configs/`, unpacks the resulting ZIP into `tests/out/<name>/` and checks it (no leaked upstream
+identifiers, loader/feature toggles, executable bit, valid JSON, cache hashes, a byte-for-byte comparison with an
+upstream checkout for the default configuration):
+
+```
+python3 tests/run_tests.py --template /path/to/Multiloader-Template
+```
+
+Requires Python 3 and Chrome/Chromium (`--chrome PATH` if it is not on `PATH`). The extracted projects under
+`tests/out/` can be built with their own `./gradlew build` as a final check.
+
+## Project layout
+
+```
+index.html            the app
+css/style.css
+js/app.js             UI: form binding, version dropdowns, URL state, download
+js/generator.js       pure transformation logic (also used by the tests)
+js/versions.js        live version catalog (Mojang, NeoForged, Forge, Fabric, Modrinth)
+js/template-data.js   generated snapshot of the template (+ license texts)
+js/versions-data.js   generated bundled version catalog
+vendor/jszip.min.js   JSZip 3.10.1 (MIT)
+licenses/             SPDX license texts baked into the snapshot
+scripts/bake.py       refreshes js/template-data.js
+scripts/bake-versions.py  refreshes js/versions-data.js
+tests/                headless end-to-end tests
+```

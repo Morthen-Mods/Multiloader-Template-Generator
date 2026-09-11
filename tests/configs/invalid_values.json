@@ -1,0 +1,15 @@
+{
+  "defaults": "ui",
+  "expect": "invalid",
+  "errorFields": ["basePackage", "classPrefix", "modAuthor", "modDescription", "modId", "modName", "sourcesUrl"],
+  "config": {
+    "modName": "Bad \"Name\"",
+    "modId": "Bad-Id",
+    "modAuthor": "Line\nBreak",
+    "modDescription": "back\\slash",
+    "basePackage": "com.example.class",
+    "classPrefix": "lowercase",
+    "rootProjectName": "ok-name",
+    "sourcesUrl": "not a url"
+  }
+}

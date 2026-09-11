@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiloader Mod Project Generator</title>
+<meta name="description" content="Generate a ready-to-build Minecraft multiloader mod project (Fabric, Forge, NeoForge) from the Morthen-Mods Multiloader-Template.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232f6feb'/%3E%3Cpath d='M4 4h8v2H4zm0 3h8v2H4zm0 3h5v2H4z' fill='white'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <h1>Multiloader Mod Project Generator</h1>
+    <span class="tagline">Fabric · Forge · NeoForge</span>
+  </div>
+  <div class="toolbar">
+    <span class="summary" id="summary"></span>
+    <button type="button" class="btn primary" id="btn-download">⬇ Download ZIP</button>
+    <button type="button" class="btn small" id="btn-share" title="Copy a link that restores this configuration">Copy link</button>
+    <button type="button" class="btn small" id="btn-reset" title="Back to the defaults">Reset</button>
+  </div>
+</header>
+
+<form class="app-main" id="config-form" autocomplete="off" onsubmit="return false">
+
+  <!-- ───────────────── column 1: identity + publishing ───────────────── -->
+  <div class="col">
+    <section class="card">
+      <div class="card-head">Mod</div>
+      <div class="card-body">
+        <div class="field">
+          <label for="f-modName">Mod name</label>
+          <input type="text" id="f-modName" data-key="modName" placeholder="Example Mod" title="Display name shown in mod lists.">
+          <div class="error" data-error-for="modName"></div>
+        </div>
+        <div class="field">
+          <label for="f-modId">Mod ID <span class="auto" data-auto-label="modId">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-modId" class="mono" data-key="modId" data-auto="modId" placeholder="example_mod" spellcheck="false" title="Lowercase letters, digits, underscores. Used for namespaces, resource file names and the package.">
+            <button type="button" class="reset-auto" data-reset-auto="modId" title="Derive from mod name again">↺</button>
+          </div>
+          <div class="error" data-error-for="modId"></div>
+        </div>
+        <div class="field">
+          <label for="f-modAuthor">Author</label>
+          <input type="text" id="f-modAuthor" data-key="modAuthor" placeholder="Your name">
+          <div class="error" data-error-for="modAuthor"></div>
+        </div>
+        <div class="field">
+          <label for="f-version">Version</label>
+          <input type="text" id="f-version" class="mono" data-key="version" spellcheck="false" title="Jars are named <mc>-<version>.">
+          <div class="error" data-error-for="version"></div>
+        </div>
+        <div class="field wide">
+          <label for="f-modDescription">Description</label>
+          <textarea id="f-modDescription" data-key="modDescription" rows="2" placeholder="What does the mod do?"></textarea>
+          <div class="error" data-error-for="modDescription"></div>
+        </div>
+        <div class="field">
+          <label for="f-modLicense">License</label>
+          <select id="f-modLicense" data-key="modLicense" title="Writes a LICENSE file and the license field of the mod metadata."></select>
+          <div class="error" data-error-for="modLicense"></div>
+        </div>
+        <div class="field">
+          <label for="f-group">Maven group</label>
+          <input type="text" id="f-group" class="mono" data-key="group" placeholder="com.example" spellcheck="false" title="Reverse-domain style, e.g. com.example.">
+          <div class="error" data-error-for="group"></div>
+        </div>
+        <div class="field wide">
+          <label for="f-basePackage">Base package <span class="auto" data-auto-label="basePackage">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-basePackage" class="mono" data-key="basePackage" data-auto="basePackage" spellcheck="false" title="Java package for all sources. Defaults to <group>.<mod id>.">
+            <button type="button" class="reset-auto" data-reset-auto="basePackage" title="Derive from group and mod ID again">↺</button>
+          </div>
+          <div class="error" data-error-for="basePackage"></div>
+        </div>
+        <div class="field">
+          <label for="f-classPrefix">Class prefix <span class="auto" data-auto-label="classPrefix">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-classPrefix" class="mono" data-key="classPrefix" data-auto="classPrefix" spellcheck="false" title="Names the classes <Prefix>Mod, <Prefix>Provider, <Prefix>Test.">
+            <button type="button" class="reset-auto" data-reset-auto="classPrefix" title="Derive from mod name again">↺</button>
+          </div>
+          <div class="error" data-error-for="classPrefix"></div>
+        </div>
+        <div class="field">
+          <label for="f-rootProjectName">Project name <span class="auto" data-auto-label="rootProjectName">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-rootProjectName" class="mono" data-key="rootProjectName" data-auto="rootProjectName" spellcheck="false" title="Gradle root project name and the folder inside the ZIP.">
+            <button type="button" class="reset-auto" data-reset-auto="rootProjectName" title="Derive from mod name again">↺</button>
+          </div>
+          <div class="error" data-error-for="rootProjectName"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">Publishing &amp; links</div>
+      <div class="card-body">
+        <label class="toggle wide" title="Configures mod-publish-plugin for Modrinth and CurseForge (./gradlew publishMods). API tokens come from the MODRINTH_API / CURSEFORGE_API environment variables.">
+          <input type="checkbox" data-key="modPublish">
+          <span class="t-label">Mod publishing (mod-publish-plugin)</span>
+        </label>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-modrinthId">Modrinth project ID</label>
+          <input type="text" id="f-modrinthId" class="mono" data-key="modrinthId" placeholder="e.g. AANobbMI" spellcheck="false">
+        </div>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-curseforgeId">CurseForge project ID</label>
+          <input type="text" id="f-curseforgeId" class="mono" data-key="curseforgeId" placeholder="e.g. 123456" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="f-sourcesUrl">Source repository URL</label>
+          <input type="text" id="f-sourcesUrl" class="mono" data-key="sourcesUrl" placeholder="https://github.com/you/your-mod" spellcheck="false">
+          <div class="error" data-error-for="sourcesUrl"></div>
+        </div>
+        <div class="field">
+          <label for="f-issuesUrl">Issue tracker URL <span class="auto" data-auto-label="issuesUrl">auto</span></label>
+          <div class="with-button">
+            <input type="text" id="f-issuesUrl" class="mono" data-key="issuesUrl" data-auto="issuesUrl" placeholder="https://github.com/you/your-mod/issues" spellcheck="false">
+            <button type="button" class="reset-auto" data-reset-auto="issuesUrl" title="Derive from the source URL again">↺</button>
+          </div>
+          <div class="error" data-error-for="issuesUrl"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ───────────────── column 2: versions + assets ───────────────── -->
+  <div class="col">
+    <section class="card" id="versions-card">
+      <div class="card-head">Minecraft &amp; loader versions
+        <span class="versions-status loading" id="versions-status">
+          <span class="dot"></span><span id="versions-status-text">Loading version lists…</span>
+          <button type="button" class="btn tiny" id="btn-refresh-versions" title="Fetch the version lists again">Refresh</button>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label for="f-minecraftVersion">Minecraft</label>
+          <div class="select-custom">
+            <select id="f-minecraftVersion" data-key="minecraftVersion" data-versions="minecraftVersion" title="Choosing a version selects the newest matching loader builds."></select>
+            <input type="text" class="mono" data-custom-for="minecraftVersion" placeholder="e.g. 26.3-rc-1" spellcheck="false" hidden>
+          </div>
+          <label class="inline-check" title="Also list snapshots, pre-releases and release candidates"><input type="checkbox" id="opt-snapshots"> Include snapshots</label>
+          <div class="error" data-error-for="minecraftVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-javaVersion">Java <span class="auto" data-auto-label="javaVersion">auto</span></label>
+          <div class="with-button">
+            <select id="f-javaVersion" data-key="javaVersion" data-auto="javaVersion" data-versions="javaVersion" title="Required Java from Mojang's version manifest."></select>
+            <button type="button" class="reset-auto" data-reset-auto="javaVersion" title="Use the Java version this Minecraft version requires">↺</button>
+          </div>
+          <div class="error" data-error-for="javaVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-neoformVersion">NeoForm</label>
+          <div class="select-custom">
+            <select id="f-neoformVersion" data-key="neoformVersion" data-versions="neoformVersion" title="Used by the common project."></select>
+            <input type="text" class="mono" data-custom-for="neoformVersion" placeholder="e.g. 26.2-2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="neoformVersion" hidden></div>
+          <div class="error" data-error-for="neoformVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.neoforge|datagen">
+          <label for="f-neoforgeVersion">NeoForge</label>
+          <div class="select-custom">
+            <select id="f-neoforgeVersion" data-key="neoforgeVersion" data-versions="neoforgeVersion" title="Also used by the datagen module."></select>
+            <input type="text" class="mono" data-custom-for="neoforgeVersion" placeholder="e.g. 26.2.0.86" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="neoforgeVersion" hidden></div>
+          <div class="error" data-error-for="neoforgeVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.fabric">
+          <label for="f-fabricLoaderVersion">Fabric Loader</label>
+          <div class="select-custom">
+            <select id="f-fabricLoaderVersion" data-key="fabricLoaderVersion" data-versions="fabricLoaderVersion" title="Independent of the Minecraft version."></select>
+            <input type="text" class="mono" data-custom-for="fabricLoaderVersion" placeholder="e.g. 0.19.5" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="fabricLoaderVersion" hidden></div>
+          <div class="error" data-error-for="fabricLoaderVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.fabric">
+          <label for="f-fabricApiVersion">Fabric API</label>
+          <div class="select-custom">
+            <select id="f-fabricApiVersion" data-key="fabricApiVersion" data-versions="fabricApiVersion"></select>
+            <input type="text" class="mono" data-custom-for="fabricApiVersion" placeholder="e.g. 0.160.0+26.2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="fabricApiVersion" hidden></div>
+          <div class="error" data-error-for="fabricApiVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.forge">
+          <label for="f-forgeVersion">Forge</label>
+          <div class="select-custom">
+            <select id="f-forgeVersion" data-key="forgeVersion" data-versions="forgeVersion"></select>
+            <input type="text" class="mono" data-custom-for="forgeVersion" placeholder="e.g. 65.1.3" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="forgeVersion" hidden></div>
+          <div class="error" data-error-for="forgeVersion"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">Icon &amp; banner <span class="hint">optional · placed in common/src/main/resources</span></div>
+      <div class="card-body">
+        <div class="asset wide">
+          <label for="f-icon"><strong>Icon</strong> · <span class="mono" data-asset-name="icon"></span></label>
+          <div class="drop">
+            <img data-asset-preview="icon" alt="" hidden>
+            <div class="meta" data-asset-meta="icon">No file. Square PNG, e.g. 128×128.</div>
+            <button type="button" class="remove" data-asset-remove="icon" hidden>Remove</button>
+          </div>
+          <input type="file" id="f-icon" accept="image/png" data-asset="icon">
+        </div>
+        <div class="asset wide">
+          <label for="f-banner"><strong>Banner</strong> · <span class="mono" data-asset-name="banner"></span></label>
+          <div class="drop">
+            <img data-asset-preview="banner" alt="" hidden>
+            <div class="meta" data-asset-meta="banner">No file. Wide PNG for Forge/NeoForge mod lists.</div>
+            <button type="button" class="remove" data-asset-remove="banner" hidden>Remove</button>
+          </div>
+          <input type="file" id="f-banner" accept="image/png" data-asset="banner">
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ───────────────── column 3: loaders/features + build tooling ───────────────── -->
+  <div class="col">
+    <section class="card">
+      <div class="card-head">Loaders &amp; features</div>
+      <div class="card-body">
+        <div class="loader-grid wide">
+          <label class="loader-chip" data-chip="fabric">
+            <input type="checkbox" data-key="loaders.fabric">
+            <span class="name">Fabric</span>
+            <span class="ver" data-version-of="fabricApiVersion"></span>
+            <span class="ver unsupported-note" data-unsupported-note="fabric" hidden></span>
+          </label>
+          <label class="loader-chip" data-chip="forge">
+            <input type="checkbox" data-key="loaders.forge">
+            <span class="name">Forge</span>
+            <span class="ver" data-version-of="forgeVersion"></span>
+            <span class="ver unsupported-note" data-unsupported-note="forge" hidden></span>
+          </label>
+          <label class="loader-chip" data-chip="neoforge">
+            <input type="checkbox" data-key="loaders.neoforge">
+            <span class="name">NeoForge</span>
+            <span class="ver" data-version-of="neoforgeVersion"></span>
+            <span class="ver unsupported-note" data-unsupported-note="neoforge" hidden></span>
+          </label>
+          <div class="loader-error error" data-error-for="loaders"></div>
+        </div>
+
+        <label class="toggle" title="NeoForge-based datagen subproject with an example recipe and tag provider. Output goes to common/src/generated.">
+          <input type="checkbox" data-key="datagen">
+          <span class="t-label">Datagen module</span>
+          <span class="t-note unsupported-note" data-unsupported-note="datagen" hidden></span>
+        </label>
+        <label class="toggle" title="A gametest source set per loader with a shared example test and run configurations.">
+          <input type="checkbox" data-key="gametest">
+          <span class="t-label">Game tests</span>
+        </label>
+        <label class="toggle" title="A testmod source set that is loaded as a second mod in the Test Client/Server runs.">
+          <input type="checkbox" data-key="testmod">
+          <span class="t-label">Test mod</span>
+        </label>
+        <label class="toggle" title="Empty mixin configs (<mod id>.mixins.json + one per loader) wired into the loader metadata.">
+          <input type="checkbox" data-key="mixins">
+          <span class="t-label">Mixins</span>
+        </label>
+        <label class="toggle" title="Ships common/runs with sensible options.txt, server.properties and eula.txt for the run configurations.">
+          <input type="checkbox" data-key="includeRunDefaults">
+          <span class="t-label">Dev run defaults</span>
+        </label>
+        <label class="toggle" data-show-if="loaders.fabric" title="Adds the Mod Menu dependency to the Fabric project and lists it as an optional dependency when publishing.">
+          <input type="checkbox" data-key="modMenu">
+          <span class="t-label">Mod Menu (Fabric)</span>
+        </label>
+        <div class="field" data-show-if="loaders.fabric&amp;modMenu">
+          <label for="f-modMenuVersion">Mod Menu version</label>
+          <div class="select-custom">
+            <select id="f-modMenuVersion" data-key="modMenuVersion" data-versions="modMenuVersion"></select>
+            <input type="text" class="mono" data-custom-for="modMenuVersion" placeholder="e.g. 20.0.2" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="modMenuVersion" hidden></div>
+          <div class="error" data-error-for="modMenuVersion"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">Build tooling <span class="hint">defaults follow the template</span></div>
+      <div class="card-body">
+        <div class="field">
+          <label for="f-gradleVersion">Gradle</label>
+          <div class="select-custom">
+            <select id="f-gradleVersion" data-key="gradleVersion" data-versions="gradleVersion" title="Wrapper distribution version."></select>
+            <input type="text" class="mono" data-custom-for="gradleVersion" placeholder="e.g. 9.6.1" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="gradleVersion" hidden></div>
+          <div class="error" data-error-for="gradleVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-jvmArgs">Gradle JVM args</label>
+          <input type="text" id="f-jvmArgs" class="mono" data-key="jvmArgs" spellcheck="false" title="org.gradle.jvmargs">
+        </div>
+        <div class="field">
+          <label for="f-multiloaderPluginVersion">Multiloader plugin</label>
+          <div class="select-custom">
+            <select id="f-multiloaderPluginVersion" data-key="multiloaderPluginVersion" data-versions="multiloaderPluginVersion"></select>
+            <input type="text" class="mono" data-custom-for="multiloaderPluginVersion" placeholder="e.g. 0.1.12" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="multiloaderPluginVersion" hidden></div>
+          <div class="error" data-error-for="multiloaderPluginVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-moddevVersion">ModDevGradle</label>
+          <div class="select-custom">
+            <select id="f-moddevVersion" data-key="moddevVersion" data-versions="moddevVersion" title="Always required (the common project uses it)."></select>
+            <input type="text" class="mono" data-custom-for="moddevVersion" placeholder="e.g. 2.0.141" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="moddevVersion" hidden></div>
+          <div class="error" data-error-for="moddevVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.fabric">
+          <label for="f-loomVersion">Fabric Loom</label>
+          <div class="select-custom">
+            <select id="f-loomVersion" data-key="loomVersion" data-versions="loomVersion"></select>
+            <input type="text" class="mono" data-custom-for="loomVersion" placeholder="e.g. 1.17-SNAPSHOT" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="loomVersion" hidden></div>
+          <div class="error" data-error-for="loomVersion"></div>
+        </div>
+        <div class="field" data-show-if="loaders.forge">
+          <label for="f-forgeGradleVersion">ForgeGradle</label>
+          <div class="select-custom">
+            <select id="f-forgeGradleVersion" data-key="forgeGradleVersion" data-versions="forgeGradleVersion"></select>
+            <input type="text" class="mono" data-custom-for="forgeGradleVersion" placeholder="e.g. [7.0.30, 8)" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="forgeGradleVersion" hidden></div>
+          <div class="error" data-error-for="forgeGradleVersion"></div>
+        </div>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-modPublishPluginVersion">mod-publish-plugin</label>
+          <div class="select-custom">
+            <select id="f-modPublishPluginVersion" data-key="modPublishPluginVersion" data-versions="modPublishPluginVersion"></select>
+            <input type="text" class="mono" data-custom-for="modPublishPluginVersion" placeholder="e.g. 2.2.0" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="modPublishPluginVersion" hidden></div>
+          <div class="error" data-error-for="modPublishPluginVersion"></div>
+        </div>
+        <div class="field">
+          <label for="f-foojayVersion">Foojay toolchain resolver</label>
+          <div class="select-custom">
+            <select id="f-foojayVersion" data-key="foojayVersion" data-versions="foojayVersion"></select>
+            <input type="text" class="mono" data-custom-for="foojayVersion" placeholder="e.g. 1.0.0" spellcheck="false" hidden>
+          </div>
+          <div class="help" data-versions-note="foojayVersion" hidden></div>
+          <div class="error" data-error-for="foojayVersion"></div>
+        </div>
+        <label class="toggle" title="org.gradle.daemon - the template disables it.">
+          <input type="checkbox" data-key="gradleDaemon">
+          <span class="t-label">Gradle daemon</span>
+        </label>
+        <label class="toggle" title="Puts everything under <project name>/ inside the archive.">
+          <input type="checkbox" data-key="wrapInFolder">
+          <span class="t-label">Wrap ZIP in folder</span>
+        </label>
+      </div>
+    </section>
+  </div>
+</form>
+
+<footer class="app-footer">
+  <span id="snapshot-info"></span>
+  <span>Runs entirely in your browser; nothing is uploaded.</span>
+  <nav class="links">
+    <a id="link-template" href="https://github.com/Morthen-Mods/Multiloader-Template" target="_blank" rel="noopener">Template</a>
+    <a href="https://github.com/Morthen-Mods/multiloader-gradle-plugin" target="_blank" rel="noopener">Gradle plugin</a>
+  </nav>
+</footer>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="js/template-data.js"></script>
+<script src="js/generator.js"></script>
+<script src="js/versions-data.js"></script>
+<script src="js/versions.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

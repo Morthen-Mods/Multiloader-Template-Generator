@@ -1,0 +1,21 @@
+{
+  "defaults": "ui",
+  "config": {
+    "modId": "ore_stuff",
+    "modName": "Ore Stuff",
+    "modAuthor": "Someone",
+    "modLicense": "LGPL-3.0-only",
+    "group": "org.someone.mods",
+    "basePackage": "org.someone.mods.orestuff",
+    "classPrefix": "OreStuff",
+    "rootProjectName": "OreStuff",
+    "loaders": { "fabric": false, "forge": true, "neoforge": true },
+    "datagen": true,
+    "gametest": true,
+    "testmod": false,
+    "mixins": false,
+    "modPublish": true,
+    "gradleVersion": "9.5.1",
+    "icon": "__test_png__"
+  }
+}

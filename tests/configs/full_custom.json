@@ -1,0 +1,21 @@
+{
+  "defaults": "ui",
+  "config": {
+    "modId": "cobble_craft",
+    "modName": "Cobble Craft",
+    "modAuthor": "Jane Doe",
+    "modDescription": "Ünïcödé 'quoted' & special <chars> description",
+    "modLicense": "Apache-2.0",
+    "version": "1.2.3",
+    "group": "dev.janedoe",
+    "basePackage": "dev.janedoe.cobble_craft",
+    "classPrefix": "CobbleCraft",
+    "rootProjectName": "Cobble-Craft",
+    "sourcesUrl": "https://github.com/janedoe/cobble-craft",
+    "issuesUrl": "https://github.com/janedoe/cobble-craft/issues",
+    "modrinthId": "abcd1234",
+    "curseforgeId": "123456",
+    "icon": "__test_png__",
+    "banner": "__test_png__"
+  }
+}

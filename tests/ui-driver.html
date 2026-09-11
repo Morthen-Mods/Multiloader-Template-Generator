@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UI interaction check</title>
+</head>
+<body>
+<!--
+  Loads ../index.html in an iframe and drives it like a user would:
+  wait for the version catalog, switch the Minecraft version, use "Custom…", and record what the
+  form ended up with. Run by tests/run_ui_check.py (needs --allow-file-access-from-files).
+-->
+<div id="status"></div>
+<pre id="out"></pre>
+<iframe id="app" src="../index.html" style="width:1200px;height:900px"></iframe>
+<script>
+(async function () {
+  const statusEl = document.getElementById('status');
+  const results = { steps: [] };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  try {
+    const frame = document.getElementById('app');
+    const waitFor = async (pred, label, ms = 40000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { let ok = false; try { ok = pred(); } catch (e) { ok = false; } if (ok) return true; await sleep(100); }
+      throw new Error('timeout waiting for ' + label);
+    };
+    // the iframe starts out as about:blank; wait until the real app document is in place
+    await waitFor(() => frame.contentDocument && frame.contentDocument.getElementById('versions-status') && frame.contentWindow.ModGenApp && frame.contentWindow.ModGenApp.getFiles().length > 0, 'app document');
+    const app = () => frame.contentWindow.ModGenApp;
+    const doc = frame.contentDocument;
+    const $ = (sel) => doc.querySelector(sel);
+    const val = (id) => {
+      const el = $('#' + id);
+      if (!el) return null;
+      if (el.value !== '__custom__') return el.value;
+      const input = el.parentElement.querySelector('[data-custom-for]');
+      return input ? input.value : el.value;
+    };
+    const options = (id) => Array.from($('#' + id).options).map((o) => o.value).filter((v) => v !== '__custom__');
+    const setSelect = (id, value) => { const el = $('#' + id); el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); };
+
+    await waitFor(() => /live|error/.test($('#versions-status').className), 'catalog');
+    results.statusText = $('#versions-status-text').textContent;
+    results.initial = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
+    results.mcOptions = options('f-minecraftVersion');
+    results.tools = {};
+    for (const id of ['gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion']) {
+      results.tools[id] = { value: val('f-' + id), count: options('f-' + id).length, first: options('f-' + id)[0] || null };
+    }
+
+    // 1. switch Minecraft to 26.1.2 -> dependent fields jump to the newest 26.1.2 builds
+    setSelect('f-minecraftVersion', '26.1.2');
+    await waitFor(() => val('f-neoformVersion') && val('f-neoformVersion').startsWith('26.1.2-'), 'neoform for 26.1.2');
+    await waitFor(() => { const v = val('f-modMenuVersion'); return v && v !== '__custom__' && v !== results.initial.modMenu; }, 'mod menu for 26.1.2');
+    results.after26_1_2 = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion'), neoforgeOptions: options('f-neoforgeVersion').length, forgeOptions: options('f-forgeVersion').length };
+    await waitFor(() => /MC 26\.1\.2/.test($('#summary').textContent), 'summary update');
+    results.summaryAfterSwitch = $('#summary').textContent;
+    results.propsAfterSwitch = app().getFiles().length;
+
+    // 2. snapshots toggle exposes snapshot versions, choosing one maps NeoForm/NeoForge alpha builds
+    $('#opt-snapshots').checked = true; $('#opt-snapshots').dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(50);
+    const snapshotOptions = options('f-minecraftVersion');
+    const snap = snapshotOptions.find((v) => /-rc-|-pre-|-snapshot-/.test(v));
+    results.snapshotCount = snapshotOptions.length;
+    const chips = () => {
+      const o = {};
+      for (const l of ['fabric', 'forge', 'neoforge']) { const el = $(`[data-key="loaders.${l}"]`); o[l] = { checked: el.checked, disabled: el.disabled }; }
+      const dg = $('[data-key="datagen"]'); o.datagen = { checked: dg.checked, disabled: dg.disabled };
+      return o;
+    };
+    if (snap) {
+      setSelect('f-minecraftVersion', snap);
+      await sleep(200);
+      results.snapshot = { mc: snap, neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion') };
+      await waitFor(() => new RegExp('MC ' + snap.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test($('#summary').textContent), 'summary for snapshot');
+      results.snapshotChips = chips();
+      results.snapshotSummary = $('#summary').textContent;
+    }
+
+    // 3. back to 26.2, then "Custom…" on NeoForm shows the text input and takes typed input
+    setSelect('f-minecraftVersion', '26.2');
+    await sleep(100);
+    results.chipsAfterReturn = chips();
+    setSelect('f-neoformVersion', '__custom__');
+    await sleep(50);
+    const input = $('[data-custom-for="neoformVersion"]');
+    results.customInputVisible = !input.hidden;
+    input.value = '26.2-99'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(300);
+    results.customValueInProps = $('#f-neoformVersion').value === '__custom__' && !input.hidden;
+    // the generated gradle.properties must carry the custom value
+    await waitFor(() => (app().getFiles().find((f) => f.path === 'gradle.properties') || {}).text?.includes('neoform=26.2-99'), 'regenerated gradle.properties');
+    const props = app().getFiles().find((f) => f.path === 'gradle.properties');
+    results.gradleProperties = props.text.split('\n').filter((l) => /^(minecraft_version|neoform|neoforge|forge|fabric_api|fabric_loader|java_version)=/.test(l));
+    results.downloadEnabled = !$('#btn-download').disabled;
+    results.validation = app().getErrors().map((e) => e.message).join(' ');
+
+    // 4. picking a list entry again leaves custom mode
+    setSelect('f-neoformVersion', options('f-neoformVersion')[0]);
+    await sleep(50);
+    results.leftCustomMode = input.hidden && $('#f-neoformVersion').value === options('f-neoformVersion')[0];
+
+    statusEl.textContent = JSON.stringify({ status: 'ok' });
+  } catch (e) {
+    statusEl.textContent = JSON.stringify({ status: 'error', message: String(e && e.message || e) });
+  }
+  document.getElementById('out').textContent = JSON.stringify(results, null, 1);
+})();
+</script>
+</body>
+</html>

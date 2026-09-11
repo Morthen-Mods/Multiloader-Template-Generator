@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>version catalog dump</title>
+<script src="../js/versions.js"></script>
+</head>
+<body>
+<!-- Opened headless by scripts/bake-versions.py: fetches the live catalog, resolves Java and
+     Mod Menu for every release, and prints the JSON into #out. -->
+<div id="status"></div>
+<pre id="out"></pre>
+<script>
+(async function () {
+  const statusEl = document.getElementById('status');
+  try {
+    const data = await VersionCatalog.fetchLive({ timeoutMs: 30000, all: true }); // all: also the sources a browser page cannot reach (bake runs without web security)
+    const catalog = new VersionCatalog.Catalog(data);
+    const problems = [];
+    for (const mc of catalog.minecraftVersions({ snapshots: false })) {
+      try { await catalog.javaFor(mc.id); } catch (e) { problems.push(`java ${mc.id}: ${e.message}`); }
+      try { await catalog.modMenuFor(mc.id); } catch (e) { problems.push(`modmenu ${mc.id}: ${e.message}`); }
+    }
+    const summary = {};
+    for (const mc of catalog.minecraftVersions({ snapshots: false })) {
+      const m = catalog.forMinecraft(mc.id);
+      summary[mc.id] = {
+        java: data.javaByMinecraft[mc.id] || null,
+        neoform: m.neoform[0] || null, neoforge: m.neoforge[0] || null, forge: m.forge[0] || null,
+        fabricApi: m.fabricApi[0] || null, fabricLoader: catalog.latestFabricLoader() || null,
+        modMenu: ((data.modMenu[mc.id] || [])[0] || {}).version || null,
+      };
+    }
+    const tools = {};
+    for (const [k, list] of Object.entries(catalog.tools())) tools[k] = { latest: list[0] || null, count: list.length };
+    document.getElementById('out').textContent = JSON.stringify(catalog.data);
+    statusEl.textContent = JSON.stringify({ status: 'ok', problems, summary, tools });
+  } catch (e) {
+    statusEl.textContent = JSON.stringify({ status: 'error', message: String(e && e.message || e) });
+  }
+})();
+</script>
+</body>
+</html>

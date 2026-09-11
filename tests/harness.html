@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ModGen test harness</title>
+<script src="../vendor/jszip.min.js"></script>
+<script src="../js/template-data.js"></script>
+<script src="../js/generator.js"></script>
+</head>
+<body>
+<!--
+  Headless test harness. Opened by tests/run_tests.py with
+    ?config=<base64url JSON of {"defaults": "ui"|"template", "config": {...}}>
+  Produces the generated project as a base64 ZIP inside #out and a JSON status in #status.
+  A config value of "__test_png__" for icon/banner is replaced by a tiny PNG.
+-->
+<div id="status"></div>
+<pre id="out"></pre>
+<script>
+(async function () {
+  const statusEl = document.getElementById('status');
+  const outEl = document.getElementById('out');
+  try {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('config') || '';
+    const json = raw ? atob(raw.replace(/-/g, '+').replace(/_/g, '/')) : '{}';
+    const spec = JSON.parse(decodeURIComponent(escape(json)));
+    const defaults = spec.defaults === 'template' ? ModGen.templateDefaults(TEMPLATE_DATA) : ModGen.uiDefaults(TEMPLATE_DATA);
+    const cfgIn = Object.assign({}, spec.config || {});
+    const tinyPng = new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,13,73,68,65,84,120,156,99,248,207,192,240,31,0,5,0,1,255,169,233,19,55,0,0,0,0,73,69,78,68,174,66,96,130]);
+    for (const k of ['icon', 'banner']) if (cfgIn[k] === '__test_png__') cfgIn[k] = tinyPng;
+
+    const cfg = ModGen.normalizeConfig(cfgIn, defaults);
+    const errors = ModGen.validate(cfg);
+    if (errors.length) {
+      statusEl.textContent = JSON.stringify({ status: 'invalid', errors, config: sanitize(cfg) });
+      return;
+    }
+    const files = ModGen.generate(TEMPLATE_DATA, cfg);
+    const blob = await ModGen.buildZip(files, cfg);
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    outEl.textContent = btoa(bin);
+    statusEl.textContent = JSON.stringify({ status: 'ok', fileCount: files.length, zipBytes: buf.length, config: sanitize(cfg) });
+  } catch (e) {
+    statusEl.textContent = JSON.stringify({ status: 'error', message: String(e && e.message || e), stack: String(e && e.stack || '') });
+  }
+  function sanitize(cfg) {
+    const c = Object.assign({}, cfg);
+    c.icon = cfg.icon ? `<${cfg.icon.length} bytes>` : null;
+    c.banner = cfg.banner ? `<${cfg.banner.length} bytes>` : null;
+    return c;
+  }
+})();
+</script>
+</body>
+</html>
