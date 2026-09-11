@@ -78,9 +78,9 @@ direkt beim Block statt wie heute in einer anderen Spalte.
 
 **Kachel „Projektinhalt“**
 ```
-[ ] Datagen module      [ ] Game tests
+[ ] Common Datagen      [ ] Game tests
 [ ] Test mod            [ ] Mixins
-[ ] Dev run defaults
+[ ] Use common as run directory
 ```
 
 **Kachel „Veröffentlichung“** — vollständig, inklusive Plugin-Version
