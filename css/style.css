@@ -270,7 +270,8 @@ input, select, textarea { font: inherit; color: inherit; }
 .asset .remove { border: 1px solid var(--border); background: transparent; border-radius: 6px; padding: 1px 7px; cursor: pointer; font-size: 15.13px; }
 
 /* ---------- version list status (inside the card head) ---------- */
-.versions-status { display: inline-flex; align-items: center; gap: 6px; font-size: 15.13px; font-weight: 400; color: var(--muted); }
+/* title and Refresh share the first line, the status always gets the second one */
+.versions-status { display: flex; align-items: center; gap: 6px; flex-basis: 100%; font-size: 15.13px; font-weight: 400; color: var(--muted); }
 .versions-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
 .versions-status.live .dot { background: var(--ok); }
 .versions-status.error .dot { background: var(--danger); }
