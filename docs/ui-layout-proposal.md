@@ -77,14 +77,14 @@ Minecraft-Version einen Build gibt, und dann immer in der neuesten verfügbaren 
 Jeder Block erscheint nur, wenn der Loader ausgewählt ist. Ist kein Build verfügbar, steht der Hinweis
 direkt beim Block statt wie heute in einer anderen Spalte.
 
-### Spalte 3 — Inhalt und Ausgabe
-
 **Kachel „Projektinhalt“**
 ```
 [ ] Common Datagen      [ ] Game tests
 [ ] Test mod            [ ] Mixins
 [ ] Use common as run directory
 ```
+
+### Spalte 3 — Ausgabe
 
 **Kachel „Veröffentlichung“** — vollständig, inklusive Plugin-Version
 ```
@@ -94,7 +94,7 @@ Source repository URL   Issue tracker URL
 mod-publish-plugin
 ```
 
-**Kachel „Build-Werkzeuge“** — zuklappbar, standardmäßig zu
+**Kachel „Build-Werkzeuge“**
 ```
 Gradle              Gradle JVM args
 [ ] Gradle daemon
@@ -108,10 +108,8 @@ Foojay resolver
 - Fabric steht an einer Stelle statt an dreien, Forge und NeoForge ebenso.
 - Die Veröffentlichung ist vollständig in einer Kachel.
 - Die Kachel *Mod* bleibt, wie sie ist, und nimmt die Bilder mit auf. Deren eigene Kachel entfällt.
-- Die selten gebrauchten Werkzeugversionen verschwinden hinter einer zugeklappten Kachel, statt ein
-  Viertel der Fläche zu belegen.
-- Verteilung der Bedienelemente: rund 12 in Spalte 1, 12 in Spalte 2, 19 in Spalte 3. Die Mod-Kachel
-  ist durch Beschreibungsfeld und Dateiauswahlen allerdings höher, als ihre Anzahl vermuten lässt.
+- Der Projektinhalt steht in Spalte 2 direkt unter den Loadern, weil er beschreibt, was diese bekommen.
+  Damit tragen alle drei Spalten ähnlich viel, und die Werkzeug-Kachel bleibt dauerhaft offen.
 
 ## Offene Entscheidungen
 
@@ -119,14 +117,6 @@ Foojay resolver
 Der Vorschlag lässt sie bei den Werkzeugen, weil sie zusammen mit den übrigen Plugin-Versionen entweder
 ignoriert oder gemeinsam angepasst werden. Die Alternative wäre, sie in den jeweiligen Loader-Block zu
 ziehen, was die Kopplung noch deutlicher macht, die Loader-Kachel aber mit Fortgeschrittenem belastet.
-
-**Soll die Werkzeug-Kachel wirklich zuklappbar sein?**
-Das steht im Widerspruch zu dem Wunsch, alles ohne Scrollen zu sehen. Zugeklappt gewinnt die Seite
-deutlich Ruhe, aufgeklappt bleibt alles wie gewohnt sichtbar. Beides ist leicht umzusetzen.
-
-**Wohin mit der Veröffentlichung, falls Spalte 3 zu hoch wird?**
-Sie steht im Vorschlag in Spalte 3 bei Inhalt und Werkzeugen. Da Spalte 1 nur noch eine Kachel trägt,
-könnte sie auch dorthin zurück, wo sie heute steht. Das entscheidet sich am besten an der gebauten Seite.
 
 **Soll die Minecraft-Auswahl die volle Kachelbreite bekommen?**
 Sie ist die folgenreichste Einstellung der Seite. Über die ganze Breite wirkt sie wie eine Überschrift

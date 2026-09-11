@@ -124,7 +124,7 @@
     </section>
   </div>
 
-  <!-- ───────────────── column 2: what the mod targets ───────────────── -->
+  <!-- ───────────────── column 2: what the mod targets and contains ───────────────── -->
   <div class="col">
     <section class="card" id="versions-card">
       <div class="card-head">
@@ -216,10 +216,7 @@
         </div>
       </div>
     </section>
-  </div>
 
-  <!-- ───────────────── column 3: contents and output ───────────────── -->
-  <div class="col">
     <section class="card">
       <div class="card-head">Project contents</div>
       <div class="card-body">
@@ -246,6 +243,10 @@
         </label>
       </div>
     </section>
+  </div>
+
+  <!-- ───────────────── column 3: output ───────────────── -->
+  <div class="col">
 
     <section class="card">
       <div class="card-head">Publishing</div>
@@ -287,8 +288,8 @@
       </div>
     </section>
 
-    <details class="card" id="build-tooling">
-      <summary>Build tooling <span class="hint">newest releases by default</span></summary>
+    <section class="card">
+      <div class="card-head">Build tooling <span class="hint">newest releases by default</span></div>
       <div class="card-body">
         <div class="field">
           <label for="f-gradleVersion">Gradle <span class="auto" data-auto-label="gradleVersion" data-auto-word="latest">latest</span></label>
@@ -353,7 +354,7 @@
           <div class="error" data-error-for="foojayVersion"></div>
         </div>
       </div>
-    </details>
+    </section>
   </div>
 </form>
 
