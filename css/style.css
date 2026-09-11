@@ -307,19 +307,3 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .toast.show { opacity: 1; }
 
-/* low windows (laptops): trim the outer spacing so the three columns still fit without scrolling */
-@media (max-height: 940px) and (min-width: 1101px) {
-  .app-main { padding: 6px 14px; gap: 10px; }
-  .col { gap: 8px; }
-  .app-header { padding: 5px 14px; }
-  .app-footer { padding: 3px 14px 4px; }
-  .card-head { padding: 4px 12px; }
-  .card-body { padding: 6px 12px; gap: 4px 10px; }
-  .field input[type="text"], .field select, .field textarea, .select-custom input[type="text"] { padding: 3px 8px; }
-  .toggle { padding: 2px 9px; gap: 0 6px; }
-  .toggle .t-desc { font-size: 13.2px; line-height: 1.1; }
-  .toggle .t-label { font-size: 16px; }
-  .loader-chip { padding: 7px 4px; gap: 0; }
-  .asset .drop { padding: 3px 8px; }
-  .field textarea { min-height: 34px; }
-}
