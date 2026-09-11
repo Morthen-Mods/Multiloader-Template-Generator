@@ -3,15 +3,16 @@
 Report whether the bundled data files differ from the committed versions in a way that matters.
 
 Both bake scripts stamp their output with the time they ran, so a plain `git diff` is never empty.
-This compares js/template-data.js and js/versions-data.js against HEAD with those timestamps
+This compares js/templates/*.js and js/versions-data.js against HEAD with those timestamps
 removed. Exit code 0 = real changes, 1 = only timestamps changed (nothing worth committing).
 Used by .github/workflows/refresh.yml.
 """
+import glob
 import re
 import subprocess
 import sys
 
-FILES = ["js/template-data.js", "js/versions-data.js"]
+FILES = sorted(glob.glob("js/templates/*.js")) + ["js/versions-data.js"]
 NOISE = [
     re.compile(r'"bakedAt":\s*"[^"]*"'),
     re.compile(r'"fetchedAt":\s*"[^"]*"'),

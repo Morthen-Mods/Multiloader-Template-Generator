@@ -26,8 +26,9 @@ excluded; fields on *latest* are not pinned in the link and resolve to whatever 
 
 ## How the generation works
 
-`scripts/bake.py` snapshots the upstream template into `js/template-data.js` (all files, the wrapper jar as
-base64, plus the license texts from `licenses/`). At runtime `js/generator.js` transforms that snapshot:
+`scripts/bake.py` snapshots the upstream template into `js/templates/`, one file per template branch, plus a
+small manifest. At runtime `js/generator.js` transforms the snapshot that matches the selected Minecraft
+version:
 
 * Java package directories and identifiers (`com.example.example_mod`) are moved to the configured base package.
 * The example classes `ExampleModMod`, `ExampleModProvider` and `ExampleModTest` are renamed with the class prefix,
@@ -95,10 +96,34 @@ builds are hidden as soon as a release build exists for the selected Minecraft v
 
 `.github/workflows/refresh.yml` runs every Monday at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch.
 It re-bakes the template snapshot from the upstream repository and the version catalog, then runs the generator
-suite (including the fidelity comparison), the UI check and a Gradle build of a generated project. Only if all of
-that passes does it commit the regenerated `js/template-data.js` and `js/versions-data.js` to `main`, which
+suite (including a byte-for-byte comparison per branch), the UI check and a Gradle build of a generated project. Only if all of
+that passes does it commit the regenerated `js/templates/` and `js/versions-data.js` to `main`, which
 GitHub Pages then publishes. A failed run leaves the site untouched and shows up as a red workflow run, which is
 the signal that the upstream template changed in a way the generator does not understand yet.
+
+## One template per Minecraft version
+
+The upstream template keeps a branch per Minecraft version line, so a project for an older version is built
+from the sources that actually worked back then. The 26.1 branch still writes `logoFile` into
+`neoforge.mods.toml`, for instance, where 26.2 writes `iconFile` and `bannerFile`.
+
+Which branch serves a version is read from that branch's own `gradle.properties`, never from the branch name.
+A branch may therefore be named anything; only the `minecraft_version` it declares counts. Selecting a version
+resolves like this:
+
+```
+26.2      -> the template declaring 26.2
+26.1.2    -> no exact match, falls back to the one declaring 26.1
+26.3-rc-1 -> pre-releases are reduced to 26.3, then fall back to the default branch
+```
+
+The footer names the branch and commit the current project comes from. `scripts/bake.py` bakes every branch
+whose name looks like a version, plus the default branch as the fallback. The default snapshot ships in a
+script tag; the others are fetched only when a version needs them, so a visit downloads one template, not all.
+
+The naming of the example mod is derived per branch (mod id, display name, class prefix, package) and stored in
+the snapshot. An upstream rename therefore needs no code change here, and older branches may use a completely
+different naming than current ones.
 
 ## Running locally
 
@@ -112,14 +137,14 @@ any static host. For GitHub Pages: push the repository and enable Pages for the 
 ## Updating the template snapshot
 
 ```
-scripts/bake.py                 # clones the upstream default branch
-scripts/bake.py --ref <tag>     # a specific tag / branch / commit
-scripts/bake.py --source ../Multiloader-Template   # a local checkout
+scripts/bake.py                                    # clones upstream, bakes every version branch
+scripts/bake.py --branches main 26.2               # only these branches
+scripts/bake.py --source ../Multiloader-Template   # a local clone (needs all branches)
 ```
 
-Commit the regenerated `js/template-data.js` afterwards and run the tests. If the upstream template renames its
-example mod (currently `example_mod` / `Example Mod` / `ExampleMod` / `com.example.example_mod`), update the `T`
-constants at the top of `js/generator.js`.
+Commit the regenerated `js/templates/` afterwards and run the tests. A rename of the example mod upstream needs
+no code change: the bake derives the naming from each branch and fails loudly if a branch no longer has the
+expected shape.
 
 ## Tests
 
@@ -143,11 +168,11 @@ css/style.css
 js/app.js             UI: form binding, version dropdowns, URL state, download
 js/generator.js       pure transformation logic (also used by the tests)
 js/versions.js        live version catalog (Mojang, NeoForged, Forge, Fabric, Modrinth)
-js/template-data.js   generated snapshot of the template (+ license texts)
+js/templates/         generated template snapshots, one per branch, plus manifest and license texts
 js/versions-data.js   generated bundled version catalog
 vendor/jszip.min.js   JSZip 3.10.1 (MIT)
 licenses/             SPDX license texts baked into the snapshot
-scripts/bake.py       refreshes js/template-data.js
+scripts/bake.py       refreshes js/templates/
 scripts/bake-versions.py  refreshes js/versions-data.js
 tests/                headless end-to-end tests
 ```

@@ -131,7 +131,8 @@ def check_flat(entries):
     return entries
 
 
-def check_common(r, files, cfg, leak_check=True):
+def check_common(r, files, cfg, leak_check=True, template_assets=None):
+    template_assets = template_assets or {}
     modid = cfg["modId"]
     pkg_path = cfg["basePackage"].replace(".", "/")
     loaders = cfg["loaders"]
@@ -253,9 +254,16 @@ def check_common(r, files, cfg, leak_check=True):
             if target in files:
                 r.check(hashlib.sha1(files[target]["data"]).hexdigest() == h, f"cache hash mismatch for {target}")
 
-    # 5. assets
-    r.check((f"common/src/main/resources/{modid}.png" in files) == bool(cfg.get("icon")), "icon presence wrong")
-    r.check((f"common/src/main/resources/{modid}_banner.png" in files) == bool(cfg.get("banner")), "banner presence wrong")
+    # 5. assets: the template may ship placeholders, an upload replaces them
+    for kind, suffix in (("icon", ""), ("banner", "_banner")):
+        path = f"common/src/main/resources/{modid}{suffix}.png"
+        uploaded = cfg.get(kind)
+        expected = bool(uploaded) or bool(template_assets.get(kind))
+        r.check((path in files) == expected, f"{kind} presence wrong (uploaded={bool(uploaded)}, template={bool(template_assets.get(kind))})")
+        if uploaded and path in files:
+            m = re.match(r"<(\d+) bytes>", str(uploaded))
+            if m:
+                r.check(len(files[path]["data"]) == int(m.group(1)), f"{kind} is not the uploaded file")
 
     # 6. license
     lic = cfg["modLicense"]
@@ -275,11 +283,37 @@ def check_common(r, files, cfg, leak_check=True):
         r.check("management-server-secret=\n" in sp, "management-server-secret not blanked")
 
 
-def check_fidelity(r, files, cfg, template_dir):
-    """With template defaults the output must equal the upstream checkout (modulo README/.idea/cache timestamps)."""
-    if not template_dir:
+def export_branch(repo, branch, dest):
+    """Read-only export of one branch, so the caller's checkout is never touched."""
+    os.makedirs(dest, exist_ok=True)
+    archive = None
+    for ref in (branch, f"origin/{branch}"):
+        res = subprocess.run(["git", "-C", repo, "archive", "--format=tar", ref], capture_output=True)
+        if res.returncode == 0:
+            archive = res.stdout
+            break
+    if archive is None:
+        raise subprocess.CalledProcessError(1, f"git archive {branch}")
+    subprocess.run(["tar", "-x", "-C", dest], input=archive, check=True)
+    return dest
+
+
+def check_fidelity(r, files, cfg, template_repo, branch):
+    """With template defaults the output must equal that branch (modulo README/.idea/cache timestamps)."""
+    if not template_repo:
         r.notes.append("fidelity: skipped (no --template checkout given)")
         return
+    with tempfile.TemporaryDirectory(prefix="modgen-fidelity-") as tmp:
+        try:
+            template_dir = export_branch(template_repo, branch, os.path.join(tmp, "tree"))
+        except subprocess.CalledProcessError as ex:
+            r.failures.append(f"fidelity: could not export branch {branch} from {template_repo}: {ex}")
+            return
+        r.notes.append(f"fidelity against branch {branch}")
+        _compare_fidelity(r, files, template_dir)
+
+
+def _compare_fidelity(r, files, template_dir):
     upstream = {}
     for dirpath, dirnames, filenames in os.walk(template_dir):
         dirnames[:] = [d for d in dirnames if d not in (".git", ".idea", ".gradle", "build")]
@@ -322,7 +356,7 @@ def check_fidelity(r, files, cfg, template_dir):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--chrome")
-    ap.add_argument("--template", help="path to an upstream Multiloader-Template checkout for the fidelity test")
+    ap.add_argument("--template", help="path to an upstream Multiloader-Template clone; branches are exported read-only for the fidelity test")
     ap.add_argument("--only", help="run just this config name")
     args = ap.parse_args()
     chrome = find_chrome(args.chrome)
@@ -337,7 +371,9 @@ def main():
             spec = json.load(fh)
         r = Result(name)
         try:
-            status, zip_b64 = run_harness(chrome, {"defaults": spec.get("defaults", "ui"), "config": spec.get("config", {})})
+            status, zip_b64 = run_harness(chrome, {"defaults": spec.get("defaults", "ui"),
+                                                  "template": spec.get("template", "default"),
+                                                  "config": spec.get("config", {})})
             if spec.get("expect") == "invalid":
                 fields = sorted({e["field"] for e in status.get("errors", [])})
                 expected = sorted(spec.get("errorFields", []))
@@ -354,9 +390,9 @@ def main():
                 files = check_flat(entries)
                 r.notes.append(f"{status['fileCount']} files, zip {status['zipBytes'] // 1024} KiB -> {os.path.relpath(dest, ROOT)}")
                 fidelity = bool(spec.get("checks", {}).get("fidelity"))
-                check_common(r, files, cfg, leak_check=not fidelity)
+                check_common(r, files, cfg, leak_check=not fidelity, template_assets=status.get("templateAssets", {}))
                 if fidelity:
-                    check_fidelity(r, files, cfg, args.template)
+                    check_fidelity(r, files, cfg, args.template, status.get("branch", "main"))
         except Exception as ex:  # noqa: BLE001
             r.failures.append(f"exception: {ex!r}")
         mark = "PASS" if r.ok() else "FAIL"

@@ -48,6 +48,7 @@
     results.apiCounts = {};
     for (const id of ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion']) results.apiCounts[id] = options('f-' + id).length;
     results.neoforgeHasBeta = options('f-neoforgeVersion').some((v) => /-beta/i.test(v));
+    results.templateInitial = app().getTemplate();
     results.initialFirst = { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] };
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
@@ -67,6 +68,10 @@
     results.after26_1_2 = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion'), neoforgeOptions: options('f-neoforgeVersion').length, forgeOptions: options('f-forgeVersion').length };
     await waitFor(() => /MC 26\.1\.2/.test($('#summary').textContent), 'summary update');
     results.summaryAfterSwitch = $('#summary').textContent;
+    // 26.1.2 has no template branch of its own and must fall back to the 26.1 one
+    await waitFor(() => app().getTemplate().minecraftVersion !== results.templateInitial.minecraftVersion, 'template switch for 26.1.2');
+    results.templateFor26_1_2 = app().getTemplate();
+    results.footer = $('#snapshot-info').textContent;
     results.propsAfterSwitch = app().getFiles().length;
 
     // 2. snapshots toggle exposes snapshot versions, choosing one maps NeoForm/NeoForge alpha builds
@@ -87,6 +92,7 @@
       results.snapshot = { mc: snap, neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion') };
       await waitFor(() => new RegExp('MC ' + snap.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test($('#summary').textContent), 'summary for snapshot');
       results.snapshotChips = chips();
+      results.templateForSnapshot = app().getTemplate();
       results.snapshotSummary = $('#summary').textContent;
     }
 
@@ -94,6 +100,7 @@
     setSelect('f-minecraftVersion', '26.2');
     await sleep(100);
     results.chipsAfterReturn = chips();
+    results.templateBack = app().getTemplate();
     setSelect('f-neoformVersion', '__custom__');
     await sleep(50);
     const input = $('[data-custom-for="neoformVersion"]');

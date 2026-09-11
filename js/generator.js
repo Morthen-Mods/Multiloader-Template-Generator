@@ -14,16 +14,15 @@
   'use strict';
 
   // ---------------------------------------------------------------------------
-  // Constants describing the *template* (the thing we transform away from).
-  // If the upstream template renames its example mod, update these.
+  // How a snapshot names its example mod (modId, modName, classPrefix, packageName,
+  // packageDir). scripts/bake.py derives this from each branch, so an upstream rename
+  // needs no code change here. Every snapshot carries its own description.
   // ---------------------------------------------------------------------------
-  const T = {
-    modId: 'example_mod',
-    modName: 'Example Mod',
-    classPrefix: 'ExampleMod',          // upstream classes: ExampleModMod, ExampleModProvider, ExampleModTest
-    packageDir: 'com/example/example_mod/',
-    packageName: 'com.example.example_mod',
-  };
+  function templateOf(td) {
+    const t = td && td.template;
+    if (!t || !t.modId || !t.packageDir) throw new Error('snapshot has no template description; re-run scripts/bake.py');
+    return t;
+  }
 
   const SUBPROJECT_ORDER = ['common', 'datagen', 'fabric', 'forge', 'neoforge'];
 
@@ -181,6 +180,7 @@
   // Defaults
   // ---------------------------------------------------------------------------
   function templateDefaults(td) {
+    const T = templateOf(td);
     const files = td.files || {};
     const text = (p) => (files[p] && typeof files[p].text === 'string') ? files[p].text : '';
     const props = parseProperties(text('gradle.properties'));
@@ -357,8 +357,9 @@
   // ---------------------------------------------------------------------------
   // Transformation
   // ---------------------------------------------------------------------------
-  function makeContext(cfg) {
+  function makeContext(td, cfg) {
     return {
+      T: templateOf(td),
       cfg,
       modId: cfg.modId,
       modName: cfg.modName,
@@ -385,6 +386,7 @@
   }
 
   function rewritePath(path, ctx) {
+    const T = ctx.T;
     let p = path;
     p = replaceAll(p, T.packageDir, ctx.pkgPath + '/');
     p = replaceAll(p, T.packageName + '.', ctx.basePackage + '.'); // META-INF/services/<fqcn>
@@ -394,11 +396,12 @@
     p = p.replace(new RegExp('/' + T.modId + '\\.classtweaker$'), `/${ctx.modId}.classtweaker`);
     p = replaceAll(p, `/data/${T.modId}/`, `/data/${ctx.modId}/`);
     p = replaceAll(p, `/data/${T.modId}_gametest/`, `/data/${ctx.modId}_gametest/`);
+    p = p.replace(new RegExp('/' + T.modId + '(_banner)?\\.png$'), `/${ctx.modId}$1.png`);
     return p;
   }
 
   function rewriteText(path, text, ctx) {
-    const { cfg, modId, modName, classPrefix, basePackage } = ctx;
+    const { T, cfg, modId, modName, classPrefix, basePackage } = ctx;
     let t = text;
     t = replaceAll(t, T.packageName, basePackage);
     t = replaceAll(t, T.classPrefix + 'Mod', classPrefix + 'Mod');
@@ -743,11 +746,11 @@ prior written consent of the copyright holder.
    * `path` is relative to the project root, which is also the ZIP root.
    */
   function generate(td, cfg) {
-    const ctx = makeContext(cfg);
+    const ctx = makeContext(td, cfg);
     const out = new Map();
-    const put = (path, entry) => {
+    const put = (path, entry, { replace = false } = {}) => {
       if (entry === null || entry === undefined) return;
-      if (out.has(path)) throw new Error(`Output path collision: ${path}`);
+      if (out.has(path) && !replace) throw new Error(`Output path collision: ${path}`);
       out.set(path, Object.assign({ path, executable: false }, entry));
     };
 
@@ -778,7 +781,7 @@ prior written consent of the copyright holder.
     put('gradle/wrapper/gradle-wrapper.properties', { text: genWrapperProperties(cfg, td) });
     put('README.md', { text: genReadme(cfg, td) });
     put('CHANGELOG.md', { text: genChangelog(cfg) });
-    const license = genLicense(cfg, global.LICENSE_DATA);
+    const license = genLicense(cfg, td.licenses || global.LICENSE_DATA);
     if (license) put('LICENSE', { text: license });
 
     put('common/build.gradle.kts', { text: genCommonBuild(cfg) });
@@ -788,8 +791,9 @@ prior written consent of the copyright holder.
     if (cfg.loaders.neoforge) put('neoforge/build.gradle.kts', { text: genNeoForgeBuild(cfg) });
 
     // optional binary assets referenced by the loader metadata files
-    if (cfg.icon) put(`common/src/main/resources/${cfg.modId}.png`, { bytes: cfg.icon });
-    if (cfg.banner) put(`common/src/main/resources/${cfg.modId}_banner.png`, { bytes: cfg.banner });
+    // the template ships placeholder artwork; an upload takes its place
+    if (cfg.icon) put(`common/src/main/resources/${cfg.modId}.png`, { bytes: cfg.icon }, { replace: true });
+    if (cfg.banner) put(`common/src/main/resources/${cfg.modId}_banner.png`, { bytes: cfg.banner }, { replace: true });
 
     // Minecraft datagen caches: "<sha1 of provider name>" file with "// <mc>\t<time>\t<provider>" header
     // followed by "<sha1 of content> <relative path>" lines. Recompute for the renamed files.
@@ -818,6 +822,7 @@ prior written consent of the copyright holder.
 
   /** Datagen provider names as they appear in .cache headers (unquoted, so rewriteText() does not cover them). */
   function rewriteProviderName(name, ctx) {
+    const T = ctx.T;
     let n = replaceAll(name, `${T.modName} Recipe Provider`, `${ctx.modName} Recipe Provider`);
     n = n.replace(new RegExp(' mod id ' + escapeRegExp(T.modId) + '$'), ` mod id ${ctx.modId}`);
     return n;
@@ -843,7 +848,7 @@ prior written consent of the copyright holder.
   }
 
   global.ModGen = {
-    T, LICENSES, JAVA_KEYWORDS,
+    LICENSES, JAVA_KEYWORDS, templateOf,
     templateDefaults, uiDefaults, normalizeConfig, validate, generate, buildZip,
     suggestModId, suggestClassPrefix, suggestRootProjectName, suggestPackage, suggestIssuesUrl,
     enabledSubprojects, sha1Hex, entryBytes, escapePropertiesValue, parseProperties,

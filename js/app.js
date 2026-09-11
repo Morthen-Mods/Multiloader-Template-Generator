@@ -2,8 +2,14 @@
 (function () {
   'use strict';
 
-  const TD = window.TEMPLATE_DATA;
-  const defaults = ModGen.uiDefaults(TD);
+  // One template snapshot per Minecraft version line (see scripts/bake.py). Exactly the one
+  // the selected Minecraft version needs is fetched, so a visit downloads a single template.
+  const MANIFEST = window.TEMPLATE_MANIFEST;
+  window.TEMPLATE_SNAPSHOTS = window.TEMPLATE_SNAPSHOTS || {};   // each snapshot file fills this in
+  let entry = null;        // manifest entry currently in use
+  let TD = null;           // its snapshot
+  let defaults = null;     // ModGen.uiDefaults(TD)
+
   // "auto" fields follow their source until the user edits them: derived names, Java, and every version
   // field (which then tracks the newest version the respective list provides)
   const VERSION_KEYS = ['minecraftVersion', 'neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion',
@@ -20,7 +26,7 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  let state = Object.assign({}, defaults, { loaders: Object.assign({}, defaults.loaders) });
+  let state = null;
   const auto = Object.fromEntries(AUTO_KEYS.map((k) => [k, true]));
   let files = [];          // generated output of the current config (for the summary and the download)
   let objectUrls = {};
@@ -33,6 +39,64 @@
   const customMode = new Set();   // version fields currently in "Custom…" text mode
   const knownJava = {};           // minecraft id -> required Java major
   const modMenuCache = {};        // minecraft id -> [{ version, type }]
+
+  // ---------------------------------------------------------------------------
+  // template selection
+  // ---------------------------------------------------------------------------
+  /**
+   * Which template serves this Minecraft version: exact match first, then ever shorter
+   * version prefixes, finally the default branch. 26.1.2 falls back to 26.1, and a
+   * snapshot such as 26.3-rc-1 is reduced to 26.3 before the search.
+   */
+  function resolveEntry(mc) {
+    const parts = String(mc || '').split('-')[0].split('.').filter(Boolean);
+    for (let n = parts.length; n >= 1; n--) {
+      const hit = MANIFEST.entries[parts.slice(0, n).join('.')];
+      if (hit) return hit;
+    }
+    return MANIFEST.entries.default;
+  }
+
+  const loadingSnapshots = new Map();
+  function loadSnapshot(key) {
+    if (window.TEMPLATE_SNAPSHOTS[key]) return Promise.resolve();
+    if (loadingSnapshots.has(key)) return loadingSnapshots.get(key);
+    const p = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = `js/templates/${key}.js`;
+      el.onload = resolve;
+      el.onerror = () => reject(new Error(`could not load the template snapshot "${key}"`));
+      document.head.appendChild(el);
+    }).finally(() => loadingSnapshots.delete(key));
+    loadingSnapshots.set(key, p);
+    return p;
+  }
+
+  function useEntry(next) {
+    const td = window.TEMPLATE_SNAPSHOTS[next.snapshot];
+    const nextDefaults = ModGen.uiDefaults(td);
+    if (state) {
+      // fields the user never touched follow the new template
+      for (const k of Object.keys(nextDefaults)) {
+        if (k === 'loaders' || HASH_EXCLUDE.has(k)) continue;
+        if (state[k] === defaults[k]) state[k] = nextDefaults[k];
+      }
+    }
+    entry = next;
+    TD = td;
+    defaults = nextDefaults;
+    if (state) renderSnapshotInfo();
+  }
+
+  /** Make sure the template matching `mc` is loaded; re-renders once a fetched one arrives. */
+  function ensureTemplate(mc) {
+    const next = resolveEntry(mc);
+    if (next === entry) return;
+    if (window.TEMPLATE_SNAPSHOTS[next.snapshot]) { useEntry(next); return; }
+    loadSnapshot(next.snapshot)
+      .then(() => { if (resolveEntry(state.minecraftVersion) === next) { useEntry(next); update({ immediate: true }); } })
+      .catch((e) => { console.error(e); toast('Could not load the template for Minecraft ' + mc + '.'); });
+  }
 
   // ---------------------------------------------------------------------------
   // state helpers
@@ -413,6 +477,7 @@
 
   function update({ immediate = false } = {}) {
     applyAuto();
+    ensureTemplate(state.minecraftVersion);
     const cfg = currentConfig();
     lastErrors = ModGen.validate(cfg);
     renderForm(lastErrors, cfg);
@@ -602,17 +667,43 @@
   }
 
   function renderSnapshotInfo() {
-    const src = (TD.source || '').replace(/\.git$/, '');
-    const short = (TD.commit || '').slice(0, 7);
-    const date = TD.commitDate ? new Date(TD.commitDate).toLocaleDateString() : '';
-    $('#snapshot-info').innerHTML = `Template snapshot: <a href="${escapeHtml(src)}/tree/${escapeHtml(TD.commit || '')}" target="_blank" rel="noopener"><code>${escapeHtml(short)}</code></a>${date ? ' from ' + escapeHtml(date) : ''}.`;
+    const src = (MANIFEST.source || '').replace(/\.git$/, '');
+    const short = (entry.commit || '').slice(0, 7);
+    const date = entry.commitDate ? new Date(entry.commitDate).toLocaleDateString() : '';
+    const branch = escapeHtml(entry.branch);
+    $('#snapshot-info').innerHTML = `Template: branch <a href="${escapeHtml(src)}/tree/${branch}" target="_blank" rel="noopener"><code>${branch}</code></a>`
+      + ` for Minecraft ${escapeHtml(entry.minecraftVersion)}, snapshot <a href="${escapeHtml(src)}/tree/${escapeHtml(entry.commit || '')}" target="_blank" rel="noopener"><code>${escapeHtml(short)}</code></a>`
+      + `${date ? ' from ' + escapeHtml(date) : ''}.`;
     if (src) $('#link-template').href = src;
   }
 
-  function init() {
+  /** The Minecraft version the page starts on: from the shared link, else the newest bundled release. */
+  function startupMinecraftVersion() {
+    const diff = decodeHash();
+    if (diff && diff.minecraftVersion) return diff.minecraftVersion;
+    try {
+      const bundled = new VersionCatalog.Catalog(VersionCatalog.normalizeData(window.VERSION_DATA, 'bundled'));
+      const newest = bundled.minecraftVersions({ snapshots: false })[0];
+      if (newest) return newest.id;
+    } catch (e) { /* fall through to the default branch */ }
+    return null;
+  }
+
+  async function init() {
     populateLicenses();
-    renderSnapshotInfo();
+    const first = resolveEntry(startupMinecraftVersion());
+    try {
+      await loadSnapshot(first.snapshot);
+    } catch (e) {
+      console.error(e);
+      document.body.insertAdjacentHTML('afterbegin',
+        '<div class="validation">The template could not be loaded. Please reload the page.</div>');
+      return;
+    }
+    useEntry(first);
+    state = Object.assign({}, defaults, { loaders: Object.assign({}, defaults.loaders) });
     loadFromHash();
+    renderSnapshotInfo();
     bindForm();
     update({ immediate: true });
     loadCatalog(false);
@@ -620,7 +711,7 @@
   }
 
   // read-only hook for tests/ui-driver.html
-  window.ModGenApp = { getFiles: () => files, getConfig: () => currentConfig(), getErrors: () => lastErrors };
+  window.ModGenApp = { getFiles: () => files, getConfig: () => currentConfig(), getErrors: () => lastErrors, getTemplate: () => entry };
 
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
 })();

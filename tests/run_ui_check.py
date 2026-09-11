@@ -76,6 +76,11 @@ def main():
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
         (all(0 < c <= 16 for c in results.get("apiCounts", {}).values()) and results.get("apiCounts"), f"loader dropdowns are capped at the newest 15 (+ current pick): {results.get('apiCounts')}"),
         (results.get("neoforgeHasBeta") is False, "NeoForge hides beta builds once a release build exists (26.2)"),
+        (results.get("templateInitial", {}).get("minecraftVersion") == "26.2", "26.2 uses the 26.2 template"),
+        (results.get("templateFor26_1_2", {}).get("minecraftVersion") == "26.1", "26.1.2 falls back to the 26.1 template"),
+        (results.get("templateBack", {}).get("minecraftVersion") == "26.2", "switching back returns to the 26.2 template"),
+        (bool(results.get("templateFor26_1_2", {}).get("branch")) and results["templateFor26_1_2"]["branch"] in results.get("footer", ""), "the footer names the branch in use"),
+        (not results.get("templateForSnapshot") or results["templateForSnapshot"].get("branch") == results.get("defaultBranch", results["templateForSnapshot"].get("branch")), "a Minecraft snapshot uses a template"),
         (results.get("after26_1_2", {}).get("neoforgeOptions", 99) <= 16, "NeoForge list for 26.1.2 is capped too"),
     ]
     sc = results.get("snapshotChips")

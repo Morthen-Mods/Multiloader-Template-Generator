@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <title>ModGen test harness</title>
 <script src="../vendor/jszip.min.js"></script>
-<script src="../js/template-data.js"></script>
+<script src="../js/templates/manifest.js"></script>
+<script src="../js/templates/licenses.js"></script>
 <script src="../js/generator.js"></script>
 </head>
 <body>
@@ -25,6 +26,19 @@
     const raw = params.get('config') || '';
     const json = raw ? atob(raw.replace(/-/g, '+').replace(/_/g, '/')) : '{}';
     const spec = JSON.parse(decodeURIComponent(escape(json)));
+    // pick the template the config targets, exactly like the app does
+    const parts = String(spec.template || 'default').split('-')[0].split('.').filter(Boolean);
+    let entry = TEMPLATE_MANIFEST.entries[spec.template] || null;
+    for (let n = parts.length; !entry && n >= 1; n--) entry = TEMPLATE_MANIFEST.entries[parts.slice(0, n).join('.')] || null;
+    entry = entry || TEMPLATE_MANIFEST.entries.default;
+    await new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = `../js/templates/${entry.snapshot}.js`;
+      el.onload = resolve;
+      el.onerror = () => reject(new Error('could not load snapshot ' + entry.snapshot));
+      document.head.appendChild(el);
+    });
+    const TEMPLATE_DATA = window.TEMPLATE_SNAPSHOTS[entry.snapshot];
     const defaults = spec.defaults === 'template' ? ModGen.templateDefaults(TEMPLATE_DATA) : ModGen.uiDefaults(TEMPLATE_DATA);
     const cfgIn = Object.assign({}, spec.config || {});
     const tinyPng = new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,13,73,68,65,84,120,156,99,248,207,192,240,31,0,5,0,1,255,169,233,19,55,0,0,0,0,73,69,78,68,174,66,96,130]);
@@ -42,7 +56,12 @@
     let bin = '';
     for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
     outEl.textContent = btoa(bin);
-    statusEl.textContent = JSON.stringify({ status: 'ok', fileCount: files.length, zipBytes: buf.length, config: sanitize(cfg) });
+    const tmplId = ModGen.templateOf(TEMPLATE_DATA).modId;
+    const templateAssets = {
+      icon: !!TEMPLATE_DATA.files[`common/src/main/resources/${tmplId}.png`],
+      banner: !!TEMPLATE_DATA.files[`common/src/main/resources/${tmplId}_banner.png`],
+    };
+    statusEl.textContent = JSON.stringify({ status: 'ok', fileCount: files.length, zipBytes: buf.length, branch: entry.branch, templateAssets, config: sanitize(cfg) });
   } catch (e) {
     statusEl.textContent = JSON.stringify({ status: 'error', message: String(e && e.message || e), stack: String(e && e.stack || '') });
   }

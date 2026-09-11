@@ -1,0 +1,21 @@
+{
+  "defaults": "ui",
+  "template": "26.1",
+  "config": {
+    "modId": "legacy_mod",
+    "modName": "Legacy Mod",
+    "modAuthor": "Tester",
+    "group": "dev.tester",
+    "basePackage": "dev.tester.legacy_mod",
+    "classPrefix": "LegacyMod",
+    "rootProjectName": "LegacyMod",
+    "minecraftVersion": "26.1.2",
+    "javaVersion": 25,
+    "neoformVersion": "26.1.2-1",
+    "neoforgeVersion": "26.1.2.109",
+    "forgeVersion": "64.1.3",
+    "fabricLoaderVersion": "0.19.5",
+    "fabricApiVersion": "0.155.3+26.1.2",
+    "modMenuVersion": "18.0.1"
+  }
+}
