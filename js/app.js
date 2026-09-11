@@ -407,9 +407,12 @@
         el.disabled = blocked;
         const box = el.closest('.toggle, .loader-chip');
         if (box) {
+          // remember the explanatory tooltip once, so it survives the blocked state
+          if (box.dataset.baseTitle === undefined) box.dataset.baseTitle = box.title;
           box.classList.toggle('disabled', blocked);
           box.classList.toggle('unsupported', blocked);
-          box.title = blocked ? `Not available for Minecraft ${cfg.minecraftVersion}` : '';
+          box.classList.toggle('on', el.checked);
+          box.title = blocked ? `Not available for Minecraft ${cfg.minecraftVersion}` : box.dataset.baseTitle;
         }
       }
       else if (el.dataset.versions === undefined && el !== active) el.value = value == null ? '' : String(value);
