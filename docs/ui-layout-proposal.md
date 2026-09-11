@@ -86,13 +86,15 @@ direkt beim Block statt wie heute in einer anderen Spalte.
 
 ### Spalte 3 — Ausgabe
 
-**Kachel „Veröffentlichung“** — vollständig, inklusive Plugin-Version
+**Kachel „Veröffentlichung“** — vollständig
 ```
 [ ] Mod publishing
 Modrinth project ID     CurseForge project ID
-Source repository URL   Issue tracker URL
-mod-publish-plugin
+Source repository URL
+Issue tracker URL
 ```
+Die beiden URLs bekommen je eine eigene Zeile, damit lange Links lesbar bleiben. Das zuständige
+Gradle-Plugin hat keine Auswahl mehr: Es kommt wie Mod Menu immer in seiner neuesten Version.
 
 **Kachel „Build-Werkzeuge“**
 ```
