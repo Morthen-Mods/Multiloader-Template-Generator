@@ -170,6 +170,9 @@ input, select, textarea { font: inherit; color: inherit; }
     box-shadow: 0 6px 20px rgba(16, 24, 40, 0.16);
     padding: 4px;
     max-height: 20rem;
+    /* thumb only: a transparent track drops the white background and the arrow buttons */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
   }
 
   .field select option {
