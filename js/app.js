@@ -149,6 +149,8 @@
   /** state holds what the user wants; the effective config drops loaders the chosen Minecraft version cannot use. */
   function currentConfig() {
     const cfg = ModGen.normalizeConfig(state, defaults);
+    // Mod Menu rides along with Fabric whenever a build exists for this Minecraft version
+    cfg.modMenu = cfg.loaders.fabric && !!cfg.modMenuVersion;
     const sup = loaderSupport(cfg.minecraftVersion);
     if (sup) {
       for (const l of ['fabric', 'forge', 'neoforge']) if (!sup[l]) cfg.loaders[l] = false;
@@ -270,7 +272,8 @@
   /** Called when the Minecraft version changes: every dependent field follows the newest build for it again. */
   function applyMinecraftDefaults(mc) {
     for (const k of MC_DEPENDENT) { auto[k] = true; customMode.delete(k); }
-    if (auto.modMenuVersion) state.modMenuVersion = ((modMenuCache[mc] || [])[0] || {}).version || '';
+    // clear first, so a version belonging to the previous Minecraft release is never carried over
+    state.modMenuVersion = ((modMenuCache[mc] || [])[0] || {}).version || '';
     ensureJava(mc);
     ensureModMenu(mc);
   }

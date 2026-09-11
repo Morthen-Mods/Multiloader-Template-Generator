@@ -14,7 +14,7 @@ sich nicht, nur die Zuordnung.
 | --- | --- |
 | Auswahl „Fabric“ | Kachel *Loaders & features*, Spalte 3 |
 | Fabric Loader, Fabric API | Kachel *Minecraft & loader versions*, Spalte 2 |
-| Mod Menu und dessen Version | Kachel *Loaders & features*, Spalte 3 |
+| Mod Menu und dessen Version | Kachel *Loaders & features*, Spalte 3 (inzwischen ohne Schalter, siehe unten) |
 | Fabric Loom | Kachel *Build tooling*, Spalte 3 |
 
 Für Forge und NeoForge gilt dasselbe Muster. Wer Fabric abwählt, muss an drei Stellen schauen, was
@@ -67,10 +67,13 @@ Die Java-Version steht hier nicht mehr, sie ergibt sich aus der Minecraft-Versio
 ```
 [ Fabric ]   [ Forge ]   [ NeoForge ]
 
-Fabric        Loader          API            [ ] Mod Menu    Version
+Fabric        Loader          API            Mod Menu
 Forge         Forge version
 NeoForge      NeoForge version
 ```
+Mod Menu hat keinen eigenen Schalter mehr: Es kommt mit Fabric mit, sobald es für die gewählte
+Minecraft-Version einen Build gibt, sonst gar nicht.
+
 Jeder Block erscheint nur, wenn der Loader ausgewählt ist. Ist kein Build verfügbar, steht der Hinweis
 direkt beim Block statt wie heute in einer anderen Spalte.
 
