@@ -124,7 +124,7 @@
     </section>
   </div>
 
-  <!-- ───────────────── column 2: what the mod targets, and where it goes ───────────────── -->
+  <!-- ───────────────── column 2: what the mod targets and contains ───────────────── -->
   <div class="col">
     <section class="card" id="versions-card">
       <div class="card-head">
@@ -217,6 +217,41 @@
       </div>
     </section>
 
+    <section class="card">
+      <div class="card-head">Project contents</div>
+      <div class="card-body">
+        <label class="toggle">
+          <input type="checkbox" data-key="datagen">
+          <span class="t-label">Common Datagen</span>
+          <span class="t-desc">NeoForge based subproject for datagen, outputs data to common/src/generated</span>
+          <span class="t-note unsupported-note" data-unsupported-note="datagen" hidden></span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-key="mixins">
+          <span class="t-label">Mixins</span>
+          <span class="t-desc">Add blank mixin configs, wired to each loader.</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-key="testmod">
+          <span class="t-label">Test Mod</span>
+          <span class="t-desc">Extra SourceSet with separate runs.<br>Behaves like a normal mod.</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-key="gametest">
+          <span class="t-label">Gametests</span>
+          <span class="t-desc">Extra SourceSet with separate run.<br>Gametests get defined in common.</span>
+        </label>
+        <label class="toggle wide">
+          <input type="checkbox" data-key="includeRunDefaults">
+          <span class="t-label">Common runs</span>
+          <span class="t-desc">Wires all Loader run configs to the common project. It also ships prepared configurations.</span>
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <!-- ───────────────── column 3: output ───────────────── -->
+  <div class="col">
 
     <section class="card">
       <div class="card-head">Publishing</div>
@@ -257,43 +292,6 @@
         </div>
       </div>
     </section>
-  </div>
-
-  <!-- ───────────────── column 3: what goes into it and how it is built ───────────────── -->
-  <div class="col">
-    <section class="card">
-      <div class="card-head">Project contents</div>
-      <div class="card-body">
-        <label class="toggle wide">
-          <input type="checkbox" data-key="datagen">
-          <span class="t-label">Common Datagen</span>
-          <span class="t-desc">NeoForge based subproject for datagen, outputs data to common/src/generated</span>
-          <span class="t-note unsupported-note" data-unsupported-note="datagen" hidden></span>
-        </label>
-        <label class="toggle wide">
-          <input type="checkbox" data-key="mixins">
-          <span class="t-label">Mixins</span>
-          <span class="t-desc">Add blank mixin configs, wired to each loader.</span>
-        </label>
-        <label class="toggle wide">
-          <input type="checkbox" data-key="testmod">
-          <span class="t-label">Test Mod</span>
-          <span class="t-desc">Extra SourceSet with separate runs.<br>Behaves like a normal mod.</span>
-        </label>
-        <label class="toggle wide">
-          <input type="checkbox" data-key="gametest">
-          <span class="t-label">Gametests</span>
-          <span class="t-desc">Extra SourceSet with separate run.<br>Gametests get defined in common.</span>
-        </label>
-        <label class="toggle wide">
-          <input type="checkbox" data-key="includeRunDefaults">
-          <span class="t-label">Common runs</span>
-          <span class="t-desc">Wires all Loader run configs to the common project. It also ships prepared configurations.</span>
-        </label>
-      </div>
-    </section>
-
-
 
     <section class="card">
       <div class="card-head">Build tooling <span class="hint">newest releases by default</span></div>
