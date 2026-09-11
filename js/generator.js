@@ -18,14 +18,11 @@
   // If the upstream template renames its example mod, update these.
   // ---------------------------------------------------------------------------
   const T = {
-    modId: 'template',
-    modName: 'Template',
-    classPrefix: 'Template',
-    packageDir: 'net/morthen/template/',
-    packageName: 'net.morthen.template',
-    // the common gametest sources live in a differently named package upstream
-    altPackageDir: 'net/morthen/example/',
-    altPackageName: 'net.morthen.example',
+    modId: 'example_mod',
+    modName: 'Example Mod',
+    classPrefix: 'ExampleMod',          // upstream classes: ExampleModMod, ExampleModProvider, ExampleModTest
+    packageDir: 'com/example/example_mod/',
+    packageName: 'com.example.example_mod',
   };
 
   const SUBPROJECT_ORDER = ['common', 'datagen', 'fabric', 'forge', 'neoforge'];
@@ -391,7 +388,6 @@
   function rewritePath(path, ctx) {
     let p = path;
     p = replaceAll(p, T.packageDir, ctx.pkgPath + '/');
-    p = replaceAll(p, T.altPackageDir, ctx.pkgPath + '/');
     p = replaceAll(p, T.packageName + '.', ctx.basePackage + '.'); // META-INF/services/<fqcn>
     p = p.replace(new RegExp('/' + T.classPrefix + '(Mod|Provider|Test)\\.java$'), `/${ctx.classPrefix}$1.java`);
     p = p.replace(new RegExp('/' + T.modId + '\\.mixins\\.json$'), `/${ctx.modId}.mixins.json`);
@@ -406,7 +402,6 @@
     const { cfg, modId, modName, classPrefix, basePackage } = ctx;
     let t = text;
     t = replaceAll(t, T.packageName, basePackage);
-    t = replaceAll(t, T.altPackageName, basePackage);
     t = replaceAll(t, T.classPrefix + 'Mod', classPrefix + 'Mod');
     t = replaceAll(t, T.classPrefix + 'Provider', classPrefix + 'Provider');
     t = replaceAll(t, T.classPrefix + 'Test', classPrefix + 'Test');

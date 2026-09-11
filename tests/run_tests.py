@@ -35,13 +35,13 @@ OUT_DIR = os.path.join(ROOT, "tests", "out")
 
 CHROME_CANDIDATES = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "chrome"]
 
+# identifiers of the upstream example mod that must not survive the transformation
+LEAK_RE = re.compile(r"morthen|example_mod|ExampleMod|com\.example|Example Mod")
 # substrings that legitimately contain upstream names
 ALLOWED_UPSTREAM = [
     "net.morthen.gradle.multiloader",   # plugin id
     "maven.morthen.net",                # plugin repository
-    "Groovy template",                  # comment inside gradlew
     "github.com/Morthen-Mods/",         # README links back to the template + plugin
-    "Multiloader Template",             # README wording
 ]
 TEXT_EXT = {".java", ".kts", ".json", ".toml", ".mcmeta", ".cfg", ".classtweaker", ".txt", ".properties", ".md", "", ".bat", ".gitignore", ".gitattributes"}
 
@@ -146,11 +146,11 @@ def check_common(r, files, cfg, leak_check=True):
         if not leak_check or not is_text_path(path):
             continue
         text = e["data"].decode("utf-8", errors="replace")
-        pattern = r"morthen" if path == "LICENSE" else r"morthen|template"  # license texts may legitimately say "templates"
+        pattern = re.compile(r"morthen", re.I) if path == "LICENSE" else LEAK_RE
         for i, line in enumerate(text.splitlines(), 1):
-            if re.search(pattern, line, re.I) and not any(a in line for a in ALLOWED_UPSTREAM):
+            if pattern.search(line) and not any(a in line for a in ALLOWED_UPSTREAM):
                 r.failures.append(f"upstream identifier leaked: {path}:{i}: {line.strip()[:120]}")
-        r.check("net/morthen" not in path, f"upstream package dir in path: {path}")
+        r.check("com/example/example_mod" not in path, f"upstream package dir in path: {path}")
 
     # 2. executable bit
     r.check("gradlew" in files, "gradlew missing")
@@ -293,10 +293,6 @@ def check_fidelity(r, files, cfg, template_dir):
             rel = os.path.relpath(full, template_dir).replace(os.sep, "/")
             with open(full, "rb") as fh:
                 data = fh.read()
-            # the generator deliberately folds the upstream "net.morthen.example" gametest package
-            # into the mod's base package; mirror that here so the comparison is apples to apples
-            rel = rel.replace("net/morthen/example/", "net/morthen/template/")
-            data = data.replace(b"net.morthen.example", b"net.morthen.template")
             if rel == "common/runs/server/server.properties":
                 # the generator blanks the upstream dev-server secret on purpose
                 data = re.sub(rb"(?m)^management-server-secret=.*$", b"management-server-secret=", data)

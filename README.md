@@ -29,11 +29,10 @@ excluded; fields on *latest* are not pinned in the link and resolve to whatever 
 `scripts/bake.py` snapshots the upstream template into `js/template-data.js` (all files, the wrapper jar as
 base64, plus the license texts from `licenses/`). At runtime `js/generator.js` transforms that snapshot:
 
-* Java package directories and identifiers (`net.morthen.template`, and the `net.morthen.example` game test
-  package, which is folded into the same base package) are moved to the configured base package.
-* The example classes `TemplateMod`, `TemplateProvider` and `TemplateTest` are renamed with the class prefix,
-  `MOD_ID` / `MOD_NAME` constants and the `template:` namespace in generated data are replaced.
-* Resource files are renamed (`<mod id>.mixins.json`, `<mod id>.classtweaker`, `data/<mod id>/…`), and the
+* Java package directories and identifiers (`com.example.example_mod`) are moved to the configured base package.
+* The example classes `ExampleModMod`, `ExampleModProvider` and `ExampleModTest` are renamed with the class prefix,
+  `MOD_ID` / `MOD_NAME` constants and the `example_mod:` namespace in generated data are replaced.
+* Resource files are renamed from `example_mod.*` (`<mod id>.mixins.json`, `<mod id>.classtweaker`, `data/<mod id>/…`), and the
   `META-INF/services` file for `IPlatformHelper` gets the new fully qualified name.
 * `gradle.properties`, `settings.gradle.kts`, the root and per-module `build.gradle.kts`, the wrapper
   properties, `README.md`, `CHANGELOG.md` and `LICENSE` are generated from the configuration. With the template's
@@ -43,7 +42,7 @@ base64, plus the license texts from `licenses/`). At runtime `js/generator.js` t
   mixin configs and their references in `fabric.mod.json` / `neoforge.mods.toml` / `forgeMixins`.
 * Minecraft's datagen `.cache` files are recomputed (SHA-1 of provider name and file contents) so the first
   `runData` does not see stale entries.
-* `gradlew` is marked executable inside the ZIP.
+* `gradlew` is marked executable inside the ZIP regardless of how it is stored upstream.
 
 All version defaults are read from the snapshot, so re-baking a newer template updates the defaults without
 touching the generator.
@@ -109,8 +108,8 @@ scripts/bake.py --source ../Multiloader-Template   # a local checkout
 ```
 
 Commit the regenerated `js/template-data.js` afterwards and run the tests. If the upstream template renames its
-example mod (currently `template` / `Template` / `net.morthen.template`), update the `T` constants at the top of
-`js/generator.js`.
+example mod (currently `example_mod` / `Example Mod` / `ExampleMod` / `com.example.example_mod`), update the `T`
+constants at the top of `js/generator.js`.
 
 ## Tests
 
