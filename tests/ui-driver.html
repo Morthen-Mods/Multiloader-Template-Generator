@@ -43,7 +43,7 @@
 
     await waitFor(() => /live|error/.test($('#versions-status').className), 'catalog');
     results.statusText = $('#versions-status-text').textContent;
-    results.initial = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
+    results.initial = { mc: val('f-minecraftVersion'), java: String(app().getConfig().javaVersion), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
     results.mcOptions = options('f-minecraftVersion');
     results.apiCounts = {};
     for (const id of ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion']) results.apiCounts[id] = options('f-' + id).length;
@@ -65,7 +65,7 @@
     setSelect('f-minecraftVersion', '26.1.2');
     await waitFor(() => val('f-neoformVersion') && val('f-neoformVersion').startsWith('26.1.2-'), 'neoform for 26.1.2');
     await waitFor(() => { const v = val('f-modMenuVersion'); return v && v !== '__custom__' && v !== results.initial.modMenu; }, 'mod menu for 26.1.2');
-    results.after26_1_2 = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion'), neoforgeOptions: options('f-neoforgeVersion').length, forgeOptions: options('f-forgeVersion').length };
+    results.after26_1_2 = { mc: val('f-minecraftVersion'), java: String(app().getConfig().javaVersion), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion'), neoforgeOptions: options('f-neoforgeVersion').length, forgeOptions: options('f-forgeVersion').length };
     await waitFor(() => app().getConfig().minecraftVersion === '26.1.2', 'config update');
     results.configAfterSwitch = app().getConfig().minecraftVersion;
     // 26.1.2 has no template branch of its own and must fall back to the 26.1 one

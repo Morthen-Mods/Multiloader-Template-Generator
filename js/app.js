@@ -14,6 +14,8 @@
   // field (which then tracks the newest version the respective list provides)
   const VERSION_KEYS = ['minecraftVersion', 'neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion',
     'gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion'];
+  // javaVersion has no control of its own: it always follows Mojang's manifest, so it stays out
+  // of the link as well (it is derived from the Minecraft version anyway)
   const AUTO_KEYS = ['modId', 'basePackage', 'classPrefix', 'rootProjectName', 'issuesUrl', 'javaVersion', ...VERSION_KEYS];
   const HASH_EXCLUDE = new Set(['icon', 'banner']);
   const MC_DEPENDENT = ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'modMenuVersion'];
@@ -131,7 +133,7 @@
         if (auto[field] && tools[list] && tools[list][0]) state[field] = tools[list][0];
       }
     }
-    if (auto.javaVersion && knownJava[state.minecraftVersion]) state.javaVersion = knownJava[state.minecraftVersion];
+    if (knownJava[state.minecraftVersion]) state.javaVersion = knownJava[state.minecraftVersion];
   }
 
   /**
@@ -292,10 +294,6 @@
       case 'minecraftVersion':
         // no type suffix: every non-release id already says what it is (-snapshot-N, -pre-N, -rc-N)
         return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({ value: v.id, label: v.id }));
-      case 'javaVersion': {
-        const set = new Set([17, 21, 25, knownJava[mc], parseInt(state.javaVersion, 10)].filter((n) => n));
-        return Array.from(set).sort((a, b) => a - b).map((n) => ({ value: n, label: n === knownJava[mc] ? `${n} (required by ${mc})` : String(n) }));
-      }
       case 'neoformVersion': return plain(capped(mapped.neoform, key, API_LIST_LIMIT));
       case 'neoforgeVersion': return plain(capped(mapped.neoforge, key, API_LIST_LIMIT));
       case 'forgeVersion': return plain(capped(mapped.forge, key, API_LIST_LIMIT));
