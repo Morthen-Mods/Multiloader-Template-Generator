@@ -66,8 +66,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .brand h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
 .brand .tagline { color: var(--muted); font-size: 17.18px; white-space: nowrap; }
-.toolbar { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; justify-content: flex-end; }
-.toolbar .summary { font-size: 16.5px; color: var(--muted); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .toolbar .btn { flex: none; white-space: nowrap; }
 
 .btn {

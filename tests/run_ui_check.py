@@ -56,7 +56,7 @@ def main():
         (a.get("fabricApi", "").endswith("+26.1.2"), "Fabric API follows the Minecraft switch"),
         (a.get("java") == "25", "Java resolved from the manifest"),
         (bool(a.get("modMenu")) and a.get("modMenu") != "__custom__", "Mod Menu resolved from Modrinth"),
-        ("MC 26.1.2" in results.get("summaryAfterSwitch", ""), "summary reflects the new Minecraft version"),
+        (results.get("configAfterSwitch") == "26.1.2", "the config follows the new Minecraft version"),
         (results.get("snapshotCount", 0) > len(results.get("mcOptions", [])), "snapshot toggle adds versions"),
         (not results.get("snapshot") or "alpha" in (results["snapshot"].get("neoforge") or "") or results["snapshot"].get("neoforge") == "", "snapshot maps to NeoForge alpha builds (or none)"),
         (not results.get("snapshot") or (results["snapshot"].get("neoform") or "").startswith(results["snapshot"]["mc"] + "-") or results["snapshot"].get("neoform") == "", "snapshot maps to a NeoForm build, or to none at all"),
@@ -92,7 +92,7 @@ def main():
             (sc["neoforge"]["disabled"] == (snap_neo == "") and sc["neoforge"]["checked"] == (snap_neo != ""), "NeoForge chip disabled exactly when the snapshot has no NeoForge build"),
             (sc["datagen"]["disabled"] == (snap_neo == "") and sc["datagen"]["checked"] == (snap_neo != ""), "datagen follows NeoForge availability"),
             (sc["fabric"]["checked"] and not sc["fabric"]["disabled"], "Fabric stays selectable on the snapshot"),
-            (("Forge" in results.get("snapshotSummary", "")) == (snap_forge != ""), "summary lists only supported loaders"),
+            (results.get("snapshotLoaders", {}).get("forge", False) == (snap_forge != ""), "only supported loaders stay enabled"),
             (all(results["chipsAfterReturn"][k]["checked"] and not results["chipsAfterReturn"][k]["disabled"] for k in ("fabric", "forge", "neoforge", "datagen")), "switching back to 26.2 restores the loader selection"),
         ]
     for ok, label in checks:

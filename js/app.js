@@ -28,7 +28,7 @@
 
   let state = null;
   const auto = Object.fromEntries(AUTO_KEYS.map((k) => [k, true]));
-  let files = [];          // generated output of the current config (for the summary and the download)
+  let files = [];          // generated output of the current config, handed to the download
   let objectUrls = {};
 
   // version catalog state
@@ -449,16 +449,6 @@
     btn.title = errors.map((e) => e.message).join('\n');
   }
 
-  function renderSummary(cfg) {
-    const loaders = ['fabric', 'forge', 'neoforge'].filter((l) => cfg.loaders[l]).map((l) => ({ fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[l]));
-    const feats = [];
-    if (cfg.datagen) feats.push('datagen');
-    if (cfg.gametest) feats.push('gametests');
-    if (cfg.testmod) feats.push('testmod');
-    if (cfg.mixins) feats.push('mixins');
-    if (cfg.modPublish) feats.push('publishing');
-    $('#summary').textContent = `${cfg.rootProjectName}.zip · ${files.length} files · MC ${cfg.minecraftVersion} · ${loaders.join(', ') || 'no loader'}${feats.length ? ' · ' + feats.join(', ') : ''}`;
-  }
 
   // ---------------------------------------------------------------------------
   // light / dark mode
@@ -520,7 +510,6 @@
         files = [];
         renderValidation([{ field: '', message: 'Generation failed: ' + e.message }]);
       }
-      renderSummary(cfg);
     };
     if (immediate) run(); else generateTimer = setTimeout(run, 120);
   }
