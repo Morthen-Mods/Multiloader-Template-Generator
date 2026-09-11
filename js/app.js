@@ -429,7 +429,13 @@
       const errs = errors.filter((e) => e.field === el.dataset.errorFor);
       el.textContent = errs.map((e) => e.message).join(' ');
     }
-    for (const el of $$('[data-show-if]')) el.hidden = !evalShowIf(el.dataset.showIf);
+    // A setting that does not apply right now is greyed out rather than removed: a field that
+    // vanishes leaves the reader wondering where it went.
+    for (const el of $$('[data-show-if]')) {
+      const active = evalShowIf(el.dataset.showIf);
+      el.classList.toggle('inactive', !active);
+      for (const ctrl of el.querySelectorAll('input, select, textarea, button')) ctrl.disabled = !active;
+    }
     for (const el of $$('[data-auto-label]')) el.textContent = auto[el.dataset.autoLabel] ? (el.dataset.autoWord || 'auto') : 'custom';
     for (const el of $$('[data-reset-auto]')) el.hidden = auto[el.dataset.resetAuto];
     for (const el of $$('[data-chip]')) el.classList.toggle('on', !!cfg.loaders[el.dataset.chip]);

@@ -38,6 +38,9 @@
 /* author rules such as .field { display: flex } outrank the browser's [hidden] rule,
    so elements toggled with el.hidden would stay visible without this */
 [hidden] { display: none !important; }
+/* a setting that does not apply to the current configuration: visible, but not editable */
+.inactive { opacity: 0.45; }
+.inactive, .inactive * { cursor: not-allowed; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
   font-family: var(--font);
