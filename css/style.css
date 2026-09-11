@@ -210,8 +210,8 @@ input, select, textarea { font: inherit; color: inherit; }
 /* ---------- toggles ---------- */
 .toggle {
   position: relative;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer; min-width: 0;
+  display: flex; align-items: center; gap: 1px 8px; flex-wrap: wrap;
+  padding: 4px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer; min-width: 0;
   color: var(--muted);
   transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
@@ -230,7 +230,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .toggle .t-label { flex: 1; font-weight: 600; font-size: 17.18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .toggle .t-note { flex-basis: 100%; font-size: 15.13px; }
 /* the explanation is spelled out on the switch, tooltips get overlooked */
-.toggle .t-desc { flex-basis: 100%; font-size: 14.43px; line-height: 1.25; font-weight: 400; color: var(--muted); }
+.toggle .t-desc { flex-basis: 100%; font-size: 14.43px; line-height: 1.2; font-weight: 400; color: var(--muted); }
 .toggle.on .t-desc { color: var(--muted); }
 .toggle.disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -316,8 +316,8 @@ input, select, textarea { font: inherit; color: inherit; }
   .card-head { padding: 4px 12px; }
   .card-body { padding: 6px 12px; gap: 4px 10px; }
   .field input[type="text"], .field select, .field textarea, .select-custom input[type="text"] { padding: 3px 8px; }
-  .toggle { padding: 2px 9px; gap: 6px; }
-  .toggle .t-desc { font-size: 13.2px; line-height: 1.15; }
+  .toggle { padding: 2px 9px; gap: 0 6px; }
+  .toggle .t-desc { font-size: 13.2px; line-height: 1.1; }
   .toggle .t-label { font-size: 16px; }
   .loader-chip { padding: 7px 4px; gap: 0; }
   .asset .drop { padding: 3px 8px; }

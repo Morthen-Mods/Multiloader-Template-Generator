@@ -80,7 +80,7 @@ direkt beim Block statt wie heute in einer anderen Spalte.
 **Kachel „Projektinhalt“** — jeder Schalter erklärt sich selbst, statt den Text nur im Tooltip zu führen
 ```
 [ ] Common Datagen      [ ] Mixins
-[ ] Test mod            [ ] Game tests
+[ ] Test Mod            [ ] Gametests
 [ ] Common runs
 ```
 
