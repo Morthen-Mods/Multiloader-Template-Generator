@@ -291,9 +291,6 @@ def check_fidelity(r, files, cfg, template_dir):
             if rel == "common/runs/server/server.properties":
                 # the generator blanks the upstream dev-server secret on purpose
                 data = re.sub(rb"(?m)^management-server-secret=.*$", b"management-server-secret=", data)
-            if rel == "gradle.properties":
-                # the generator always enables the Gradle daemon; upstream turns it off
-                data = re.sub(rb"(?m)^org\.gradle\.daemon=.*$", b"org.gradle.daemon=true", data)
             upstream[rel] = data
     ignore = {"README.md"}
 
