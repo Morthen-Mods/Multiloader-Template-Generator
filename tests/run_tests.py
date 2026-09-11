@@ -124,16 +124,11 @@ def extract_zip(zip_bytes, dest):
     return entries
 
 
-def strip_prefix(entries, cfg):
-    prefix = cfg["rootProjectName"] + "/" if cfg.get("wrapInFolder") else ""
-    out = {}
-    for name, e in entries.items():
-        if prefix:
-            if not name.startswith(prefix):
-                raise AssertionError(f"entry {name} is not inside wrapper folder {prefix}")
-            name = name[len(prefix):]
-        out[name] = e
-    return out
+def check_flat(entries):
+    """The project sits at the ZIP root; nothing may wrap it in a folder."""
+    if "gradle.properties" not in entries:
+        raise AssertionError(f"gradle.properties is not at the ZIP root; top entries: {sorted(entries)[:5]}")
+    return entries
 
 
 def check_common(r, files, cfg, leak_check=True):
@@ -356,7 +351,7 @@ def main():
                 zip_bytes = base64.b64decode(zip_b64)
                 dest = os.path.join(OUT_DIR, name)
                 entries = extract_zip(zip_bytes, dest)
-                files = strip_prefix(entries, cfg)
+                files = check_flat(entries)
                 r.notes.append(f"{status['fileCount']} files, zip {status['zipBytes'] // 1024} KiB -> {os.path.relpath(dest, ROOT)}")
                 fidelity = bool(spec.get("checks", {}).get("fidelity"))
                 check_common(r, files, cfg, leak_check=not fidelity)

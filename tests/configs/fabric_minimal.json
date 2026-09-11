@@ -9,14 +9,17 @@
     "basePackage": "io.tiny.tinymod",
     "classPrefix": "TinyMod",
     "rootProjectName": "tinymod",
-    "loaders": { "fabric": true, "forge": false, "neoforge": false },
+    "loaders": {
+      "fabric": true,
+      "forge": false,
+      "neoforge": false
+    },
     "datagen": false,
     "gametest": false,
     "testmod": false,
     "mixins": false,
     "modPublish": false,
     "modMenu": false,
-    "includeRunDefaults": false,
-    "wrapInFolder": false
+    "includeRunDefaults": false
   }
 }

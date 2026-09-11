@@ -37,7 +37,7 @@
       return;
     }
     const files = ModGen.generate(TEMPLATE_DATA, cfg);
-    const blob = await ModGen.buildZip(files, cfg);
+    const blob = await ModGen.buildZip(files);
     const buf = new Uint8Array(await blob.arrayBuffer());
     let bin = '';
     for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));

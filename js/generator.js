@@ -5,7 +5,7 @@
  *   const cfg = ModGen.normalizeConfig(partialConfig, ModGen.uiDefaults(TEMPLATE_DATA));
  *   const errors = ModGen.validate(cfg);           // [] when fine
  *   const files = ModGen.generate(TEMPLATE_DATA, cfg); // [{ path, text|bytes, executable }]
- *   const blob = await ModGen.buildZip(files, cfg);   // needs JSZip on the page
+ *   const blob = await ModGen.buildZip(files);        // needs JSZip on the page
  *
  * Everything in here is deliberately independent of the UI so that the same code
  * can be exercised by the headless test harness in tests/.
@@ -234,7 +234,6 @@
       issuesUrl: props.issues_url || '',
       // output
       includeRunDefaults: true,
-      wrapInFolder: true,
       // build tooling
       gradleVersion: gradleMatch ? gradleMatch[1] : '',
       jvmArgs: props['org.gradle.jvmargs'] || '-Xmx4096M',
@@ -741,7 +740,7 @@ prior written consent of the copyright holder.
 
   /**
    * Returns an array of output entries: { path, text?, bytes?, executable }.
-   * `path` is relative to the project root (no wrapping folder; see buildZip()).
+   * `path` is relative to the project root, which is also the ZIP root.
    */
   function generate(td, cfg) {
     const ctx = makeContext(cfg);
@@ -828,13 +827,13 @@ prior written consent of the copyright holder.
     return entry.bytes ? entry.bytes : utf8.encode(entry.text);
   }
 
-  async function buildZip(files, cfg) {
+  async function buildZip(files) {
     if (typeof global.JSZip === 'undefined') throw new Error('JSZip is not loaded');
     const zip = new global.JSZip();
-    const prefix = cfg.wrapInFolder ? cfg.rootProjectName + '/' : '';
     const date = new Date();
     for (const f of files) {
-      zip.file(prefix + f.path, f.bytes ? f.bytes : f.text, {
+      // the project sits at the archive root; extractors that need a folder create one themselves
+      zip.file(f.path, f.bytes ? f.bytes : f.text, {
         binary: !!f.bytes,
         date,
         unixPermissions: f.executable ? 0o755 : 0o644,

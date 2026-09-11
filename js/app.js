@@ -552,7 +552,7 @@
     btn.textContent = 'Packing…';
     try {
       const out = ModGen.generate(TD, cfg);
-      const blob = await ModGen.buildZip(out, cfg);
+      const blob = await ModGen.buildZip(out);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `${cfg.rootProjectName}.zip`;

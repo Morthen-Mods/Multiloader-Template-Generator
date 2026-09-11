@@ -64,7 +64,7 @@ jobs:
       - name: Build a generated project
         run: |
           set -e
-          cd tests/out/full_custom/Cobble-Craft
+          cd tests/out/full_custom
           ./gradlew build compileTestmodJava compileGametestJava --no-daemon --console=plain
 
       - name: Commit and push if anything changed
