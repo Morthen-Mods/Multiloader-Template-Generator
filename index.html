@@ -306,6 +306,10 @@
           <label for="f-jvmArgs">Gradle JVM args</label>
           <input type="text" id="f-jvmArgs" class="mono" data-key="jvmArgs" spellcheck="false" title="org.gradle.jvmargs">
         </div>
+        <label class="toggle wide" title="org.gradle.daemon - the template disables it.">
+          <input type="checkbox" data-key="gradleDaemon">
+          <span class="t-label">Gradle daemon</span>
+        </label>
         <div class="field">
           <label for="f-multiloaderPluginVersion">Multiloader plugin <span class="auto" data-auto-label="multiloaderPluginVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
@@ -360,10 +364,6 @@
           <div class="help" data-versions-note="foojayVersion" hidden></div>
           <div class="error" data-error-for="foojayVersion"></div>
         </div>
-        <label class="toggle" title="org.gradle.daemon - the template disables it.">
-          <input type="checkbox" data-key="gradleDaemon">
-          <span class="t-label">Gradle daemon</span>
-        </label>
       </div>
     </section>
   </div>
