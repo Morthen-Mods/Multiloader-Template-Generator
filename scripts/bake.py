@@ -207,7 +207,8 @@ def main() -> int:
         # say out loud which branches are not baked, so a misnamed version branch is noticed
         skipped = [b for b in all_branches if b not in wanted]
         if skipped:
-            print(f"skipping branches (no version-shaped name): {', '.join(sorted(skipped))}")
+            why = "not requested" if args.branches else "no version-shaped name"
+            print(f"skipping branches ({why}): {', '.join(sorted(skipped))}")
 
         licenses = collect_licenses()
         baked_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")

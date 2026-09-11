@@ -1,12 +1,12 @@
 // GENERATED FILE - do not edit by hand. Regenerate with scripts/bake.py
 window.TEMPLATE_MANIFEST = {
- "bakedAt": "2026-09-11T17:15:09+00:00",
+ "bakedAt": "2026-09-11T17:33:23+00:00",
  "defaultBranch": "main",
  "entries": {
   "26.1": {
-   "branch": "21.1",
-   "commit": "82cd90a002fe4ecb608e3fc05889e1f2eea42fd7",
-   "commitDate": "2026-09-11T19:05:56+02:00",
+   "branch": "26.1",
+   "commit": "0b13010d1b060917f333cc992bda06034051a00e",
+   "commitDate": "2026-09-11T19:20:09+02:00",
    "minecraftVersion": "26.1",
    "snapshot": "26.1",
    "template": {

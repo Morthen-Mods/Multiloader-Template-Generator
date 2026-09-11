@@ -337,6 +337,10 @@ def _compare_fidelity(r, files, template_dir):
                 parts[1] = "TIME"
             lines[0] = "\t".join(parts)
             return "\n".join(lines).rstrip("\n").encode()
+        if path == "gradle.properties":
+            # the generator rebuilds this file (keys appear only when the feature is on), so it owns the
+            # section comments; every actual setting still has to match the branch exactly
+            data = b"\n".join(l for l in data.splitlines() if not l.strip().startswith(b"#"))
         return data.rstrip(b"\r\n")  # generated files always end with a newline, upstream is inconsistent
 
     missing = sorted(p for p in upstream if p not in files and p not in ignore)
