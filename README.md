@@ -21,9 +21,9 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 Derived fields (mod ID, base package, class prefix, project name, issue URL) follow the fields they are based on
 until you edit them; the `↺` button switches a field back to automatic.
 
-The form is laid out in three columns: the mod itself on the left, what it targets and contains in the middle
-(Minecraft, the loaders each carrying their own versions, and the project contents), and the output on the right
-(publishing and build tooling).
+The form is laid out in three columns: the mod itself on the left, what it targets and where it goes in the
+middle (Minecraft, the loaders each carrying their own versions, and publishing), and what goes into the project
+plus how it is built on the right.
 
 The current configuration is encoded in the URL fragment, so a link to the page restores it (binary assets
 excluded; fields on *latest* are not pinned in the link and resolve to whatever is newest when it is opened). **Copy link** puts that URL on the clipboard.

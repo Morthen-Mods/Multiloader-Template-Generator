@@ -54,7 +54,7 @@ Icon              Banner
 Die einzige Änderung an dieser Kachel ist die letzte Zeile. Icon und Banner gehören zur Außenwirkung des
 Mods wie Name und Beschreibung und brauchen dafür keine eigene Kachel.
 
-### Spalte 2 — Zielplattform
+### Spalte 2 — Zielplattform und Veröffentlichung
 
 **Kachel „Minecraft“**
 ```
@@ -77,14 +77,17 @@ Minecraft-Version einen Build gibt, und dann immer in der neuesten verfügbaren 
 Jeder Block erscheint nur, wenn der Loader ausgewählt ist. Ist kein Build verfügbar, steht der Hinweis
 direkt beim Block statt wie heute in einer anderen Spalte.
 
-**Kachel „Projektinhalt“** — jeder Schalter erklärt sich selbst, statt den Text nur im Tooltip zu führen
+**Kachel „Projektinhalt“** — jeder Schalter erklärt sich selbst, statt den Text nur im Tooltip zu führen.
+Alle Schalter nehmen die volle Kachelbreite ein, damit sie gleich aussehen. Dadurch wächst die Kachel, weshalb
+sie in Spalte 3 steht und die Veröffentlichung in Spalte 2 wandert; anders passen die Spalten nicht mehr ohne
+Scrollen.
 ```
 [ ] Common Datagen      [ ] Mixins
 [ ] Test Mod            [ ] Gametests
 [ ] Common runs
 ```
 
-### Spalte 3 — Ausgabe
+### Spalte 3 — Inhalt und Bau
 
 **Kachel „Veröffentlichung“** — vollständig, inklusive Plugin-Version
 ```
@@ -108,8 +111,7 @@ Foojay resolver
 - Fabric steht an einer Stelle statt an dreien, Forge und NeoForge ebenso.
 - Die Veröffentlichung ist vollständig in einer Kachel.
 - Die Kachel *Mod* bleibt, wie sie ist, und nimmt die Bilder mit auf. Deren eigene Kachel entfällt.
-- Der Projektinhalt steht in Spalte 2 direkt unter den Loadern, weil er beschreibt, was diese bekommen.
-  Damit tragen alle drei Spalten ähnlich viel, und die Werkzeug-Kachel bleibt dauerhaft offen.
+- Alle drei Spalten tragen ähnlich viel und passen ohne Scrollen, gemessen von 1280x800 bis 2560x1440.
 
 ## Offene Entscheidungen
 
