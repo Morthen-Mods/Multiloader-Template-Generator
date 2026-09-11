@@ -77,11 +77,11 @@ Minecraft-Version einen Build gibt, und dann immer in der neuesten verfügbaren 
 Jeder Block erscheint nur, wenn der Loader ausgewählt ist. Ist kein Build verfügbar, steht der Hinweis
 direkt beim Block statt wie heute in einer anderen Spalte.
 
-**Kachel „Projektinhalt“**
+**Kachel „Projektinhalt“** — jeder Schalter erklärt sich selbst, statt den Text nur im Tooltip zu führen
 ```
-[ ] Common Datagen      [ ] Game tests
-[ ] Test mod            [ ] Mixins
-[ ] Use common as run directory
+[ ] Common Datagen      [ ] Mixins
+[ ] Test mod            [ ] Game tests
+[ ] Common runs
 ```
 
 ### Spalte 3 — Ausgabe

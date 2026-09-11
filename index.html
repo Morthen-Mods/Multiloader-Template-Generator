@@ -223,23 +223,28 @@
         <label class="toggle" title="NeoForge-based datagen subproject with an example recipe and tag provider. Output goes to common/src/generated.">
           <input type="checkbox" data-key="datagen">
           <span class="t-label">Common Datagen</span>
+          <span class="t-desc">Recipe and tag providers, writing to common/src/generated</span>
           <span class="t-note unsupported-note" data-unsupported-note="datagen" hidden></span>
-        </label>
-        <label class="toggle" title="A gametest source set per loader with a shared example test and run configurations.">
-          <input type="checkbox" data-key="gametest">
-          <span class="t-label">Game tests</span>
-        </label>
-        <label class="toggle" title="A testmod source set that is loaded as a second mod in the Test Client/Server runs.">
-          <input type="checkbox" data-key="testmod">
-          <span class="t-label">Test mod</span>
         </label>
         <label class="toggle" title="Empty mixin configs (<mod id>.mixins.json + one per loader) wired into the loader metadata.">
           <input type="checkbox" data-key="mixins">
           <span class="t-label">Mixins</span>
+          <span class="t-desc">Empty mixin configs, wired into every loader</span>
+        </label>
+        <label class="toggle" title="A testmod source set that is loaded as a second mod in the Test Client/Server runs.">
+          <input type="checkbox" data-key="testmod">
+          <span class="t-label">Test mod</span>
+          <span class="t-desc">Second mod, loaded by the Test Client and Server runs</span>
+        </label>
+        <label class="toggle" title="A gametest source set per loader with a shared example test and run configurations.">
+          <input type="checkbox" data-key="gametest">
+          <span class="t-label">Game tests</span>
+          <span class="t-desc">Shared example test plus its run configurations</span>
         </label>
         <label class="toggle wide" title="Ships common/runs with sensible options.txt, server.properties and eula.txt for the run configurations.">
           <input type="checkbox" data-key="includeRunDefaults">
-          <span class="t-label">Use common as run directory</span>
+          <span class="t-label">Common runs</span>
+          <span class="t-desc">Ships common/runs with a prepared options.txt, server.properties and eula.txt</span>
         </label>
       </div>
     </section>

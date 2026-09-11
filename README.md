@@ -12,7 +12,7 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 | --- | --- |
 | Mod | name, mod ID, author, version, description, license (MIT, Apache-2.0, MPL-2.0, LGPL-3.0, GPL-3.0, all-rights-reserved, none), Maven group, Java base package, class prefix, project name |
 | Loaders | any combination of Fabric, Forge and NeoForge |
-| Features | common datagen, game tests, test mod, mixins, common run directory. Mod Menu comes with Fabric automatically whenever a build exists for the selected Minecraft version |
+| Features | common datagen, mixins, test mod, game tests, common runs. Mod Menu comes with Fabric automatically whenever a build exists for the selected Minecraft version |
 | Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
 | Assets | mod icon and banner PNGs (placed in `common/src/main/resources`), in the Mod card |
 | Versions | Minecraft (26.1+, snapshots optional), NeoForm, and per loader its own versions, all as dropdowns filled from the official version lists and defaulting to the newest entry. The Java version is not a choice: it comes from Mojang's manifest for the selected Minecraft version |
