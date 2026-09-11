@@ -149,6 +149,43 @@ input, select, textarea { font: inherit; color: inherit; }
 .field .reset-auto:hover { color: var(--text); border-color: var(--accent); }
 .select-custom { display: flex; flex-direction: column; gap: 5px; }
 .field select option.tpl { font-weight: 600; }
+
+/* Rounded dropdown list. Only browsers that support the customizable select render this;
+   every other one keeps its native list, which is a clean fallback, not an error. */
+@supports (appearance: base-select) {
+  .field select, .select-custom select { appearance: base-select; }
+
+  /* the closed control must keep exactly the look it has without this block */
+  .field select::picker-icon {
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .field select:open::picker-icon { transform: rotate(180deg); }
+
+  .field select::picker(select) {
+    appearance: base-select;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 6px 20px rgba(16, 24, 40, 0.16);
+    padding: 4px;
+    max-height: 20rem;
+  }
+
+  .field select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+  }
+  .field select option:hover,
+  .field select option:focus { background: var(--accent-soft); }
+  .field select option:checked { background: var(--accent); color: var(--accent-text); }
+  .field select option::checkmark { display: none; }
+}
 .inline-check { display: flex; align-items: center; justify-content: flex-start !important; gap: 6px; font-size: 15.13px; color: var(--muted); cursor: pointer; font-weight: 400 !important; white-space: nowrap; }
 .inline-check input { accent-color: var(--accent); margin: 0; }
 
