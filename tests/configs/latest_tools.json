@@ -1,0 +1,27 @@
+{
+  "defaults": "ui",
+  "config": {
+    "modId": "latest_mod",
+    "modName": "Latest Mod",
+    "modAuthor": "Tester",
+    "group": "dev.tester",
+    "basePackage": "dev.tester.latest_mod",
+    "classPrefix": "LatestMod",
+    "rootProjectName": "LatestMod",
+    "minecraftVersion": "26.2",
+    "javaVersion": 25,
+    "neoformVersion": "26.2-2",
+    "neoforgeVersion": "26.2.0.86",
+    "forgeVersion": "65.1.3",
+    "fabricLoaderVersion": "0.19.5",
+    "fabricApiVersion": "0.160.0+26.2",
+    "modMenuVersion": "20.0.2",
+    "gradleVersion": "9.7.1",
+    "multiloaderPluginVersion": "0.1.13",
+    "moddevVersion": "2.0.146",
+    "loomVersion": "1.17.20",
+    "forgeGradleVersion": "7.0.38",
+    "modPublishPluginVersion": "2.2.0",
+    "foojayVersion": "1.0.0"
+  }
+}

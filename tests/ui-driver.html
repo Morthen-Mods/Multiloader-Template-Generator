@@ -34,7 +34,8 @@
       const el = $('#' + id);
       if (!el) return null;
       if (el.value !== '__custom__') return el.value;
-      const input = el.parentElement.querySelector('[data-custom-for]');
+      const wrap = el.closest('.select-custom');
+      const input = wrap && wrap.querySelector('[data-custom-for]');
       return input ? input.value : el.value;
     };
     const options = (id) => Array.from($('#' + id).options).map((o) => o.value).filter((v) => v !== '__custom__');
@@ -44,6 +45,7 @@
     results.statusText = $('#versions-status-text').textContent;
     results.initial = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
     results.mcOptions = options('f-minecraftVersion');
+    results.initialFirst = { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] };
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
       const vals = Array.from(sel.options).map((o) => o.value);
@@ -107,6 +109,15 @@
     setSelect('f-neoformVersion', options('f-neoformVersion')[0]);
     await sleep(50);
     results.leftCustomMode = input.hidden && $('#f-neoformVersion').value === options('f-neoformVersion')[0];
+
+    // 5. pin an older Gradle version, then the reset button returns to the newest one
+    const gradleOpts = options('f-gradleVersion');
+    setSelect('f-gradleVersion', gradleOpts[2]);
+    await sleep(50);
+    const pinned = val('f-gradleVersion') === gradleOpts[2] && $('[data-auto-label="gradleVersion"]').textContent === 'custom';
+    $('[data-reset-auto="gradleVersion"]').click();
+    await sleep(50);
+    results.resetToLatest = pinned && val('f-gradleVersion') === gradleOpts[0] && $('[data-auto-label="gradleVersion"]').textContent === 'latest';
 
     statusEl.textContent = JSON.stringify({ status: 'ok' });
   } catch (e) {

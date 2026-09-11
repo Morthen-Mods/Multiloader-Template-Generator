@@ -47,7 +47,8 @@ def main():
         failures.append(f"driver: {status}")
     a = results.get("after26_1_2", {})
     checks = [
-        (results.get("initial", {}).get("mc") == "26.2", "initial Minecraft version is the template's"),
+        (results.get("initial", {}).get("mc") == results.get("mcOptions", [None])[0], "initial Minecraft version is the newest release"),
+        (all(results.get("initial", {}).get(k) == results.get("initialFirst", {}).get(k) for k in ("neoform", "neoforge", "forge", "fabricApi")), "loader fields start on the newest build for that release"),
         ("26.1.2" in results.get("mcOptions", []) and "26.1" in results.get("mcOptions", []), "release list contains 26.1.x"),
         (a.get("neoform", "").startswith("26.1.2-"), "NeoForm follows the Minecraft switch"),
         (a.get("neoforge", "").startswith("26.1.2."), "NeoForge follows the Minecraft switch"),
@@ -63,14 +64,15 @@ def main():
         (any(l == "neoform=26.2-99" for l in results.get("gradleProperties", [])), "custom value reaches gradle.properties"),
         (results.get("downloadEnabled") is True, "download stays enabled with a custom value"),
         (results.get("leftCustomMode") is True, "picking a list entry leaves custom mode"),
-        (results.get("tools", {}).get("gradleVersion", {}).get("value") == "9.6.1" and results["tools"]["gradleVersion"]["count"] >= 5, "Gradle dropdown lists releases and keeps the template default"),
+        (results.get("tools", {}).get("gradleVersion", {}).get("value") == results.get("tools", {}).get("gradleVersion", {}).get("first") and results["tools"]["gradleVersion"]["count"] >= 5, "Gradle dropdown starts on the newest release"),
+        (all(v.get("value") == v.get("first") for v in results.get("tools", {}).values()), "every build tool starts on its newest version"),
         (results.get("tools", {}).get("multiloaderPluginVersion", {}).get("count", 0) >= 3, "Multiloader plugin versions listed"),
         (results.get("tools", {}).get("moddevVersion", {}).get("count", 0) >= 3, "ModDevGradle versions listed"),
-        ("1.17-SNAPSHOT" == results.get("tools", {}).get("loomVersion", {}).get("value"), "Loom keeps the template's snapshot line"),
-        (results.get("tools", {}).get("forgeGradleVersion", {}).get("first") == "[7.0.30, 8)" and results["tools"]["forgeGradleVersion"]["count"] >= 3, "ForgeGradle offers the template range plus concrete versions"),
+        (results.get("tools", {}).get("forgeGradleVersion", {}).get("count", 0) >= 3 and results["tools"]["forgeGradleVersion"]["first"].startswith("7."), "ForgeGradle lists concrete 7.x versions"),
+        (results.get("resetToLatest") is True, "the reset button returns a pinned field to the newest version"),
         (results.get("tools", {}).get("modPublishPluginVersion", {}).get("count", 0) >= 2, "mod-publish-plugin versions come from the bundled list"),
         (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
-        (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ template entry)"),
+        (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
     ]
     sc = results.get("snapshotChips")

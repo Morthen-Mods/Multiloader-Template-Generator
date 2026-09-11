@@ -15,14 +15,14 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 | Features | datagen module, game tests, test mod, mixins, Mod Menu dependency (Fabric), dev run defaults |
 | Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
 | Assets | mod icon and banner PNGs (placed in `common/src/main/resources`) |
-| Versions | Minecraft (26.1+, snapshots optional), Java, NeoForm, NeoForge, Fabric Loader/API, Forge, Mod Menu, all as dropdowns filled from the official version lists |
+| Versions | Minecraft (26.1+, snapshots optional), Java, NeoForm, NeoForge, Fabric Loader/API, Forge, Mod Menu, all as dropdowns filled from the official version lists and defaulting to the newest entry |
 | Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin, ModDevGradle, Fabric Loom, ForgeGradle, mod-publish-plugin and the Foojay resolver (dropdowns fed from the respective release lists) |
 
 Derived fields (mod ID, base package, class prefix, project name, issue URL) follow the fields they are based on
 until you edit them; the `↺` button switches a field back to automatic.
 
 The current configuration is encoded in the URL fragment, so a link to the page restores it (binary assets
-excluded). **Copy link** puts that URL on the clipboard.
+excluded; fields on *latest* are not pinned in the link and resolve to whatever is newest when it is opened). **Copy link** puts that URL on the clipboard.
 
 ## How the generation works
 
@@ -71,8 +71,9 @@ Their contents are fetched in the browser when the page opens (cached in `localS
 | mod-publish-plugin | Gradle Plugin Portal; it sends no CORS headers, so this list only comes from the bundled catalog |
 | Foojay resolver | GitHub tags of `gradle/foojay-toolchains` |
 
-Picking a Minecraft version selects the newest matching build for every dependent field; every dropdown also
-has a *Custom…* entry for typing a version by hand. Loaders without a build for the chosen version (for example
+Every version field starts on the newest entry of its list (marked *latest*) and keeps following it until you pick
+something else; the `↺` button returns a field to *latest*. Picking a Minecraft version puts every dependent field
+back on the newest matching build; every dropdown also has a *Custom…* entry for typing a version by hand. Loaders without a build for the chosen version (for example
 Forge and NeoForge on a fresh snapshot) are switched off and greyed out, as is the datagen module when NeoForge
 is unavailable; the previous selection returns when a supported version is chosen again. Hand-typed versions the
 manifest does not know are never restricted. The mapping rules (for example NeoForge `26.1.2.<build>` for
@@ -87,8 +88,8 @@ scripts/bake-versions.py      # runs js/versions.js in headless Chrome and write
 ```
 
 The bake runs Chrome with web security disabled so it can also read the Gradle Plugin Portal; the page itself
-never does that. The build tooling dropdowns show the newest ten versions of each tool (plus the template's
-pinned entry); older versions can still be typed in via *Custom…*.
+never does that. The build tooling dropdowns show the newest ten versions of each tool; older versions can still be typed in via
+*Custom…*.
 
 ## Running locally
 

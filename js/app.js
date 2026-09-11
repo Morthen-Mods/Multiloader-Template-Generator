@@ -4,8 +4,11 @@
 
   const TD = window.TEMPLATE_DATA;
   const defaults = ModGen.uiDefaults(TD);
-  const templateDefaults = ModGen.templateDefaults(TD);
-  const AUTO_KEYS = ['modId', 'basePackage', 'classPrefix', 'rootProjectName', 'issuesUrl', 'javaVersion'];
+  // "auto" fields follow their source until the user edits them: derived names, Java, and every version
+  // field (which then tracks the newest version the respective list provides)
+  const VERSION_KEYS = ['minecraftVersion', 'neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion',
+    'gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion'];
+  const AUTO_KEYS = ['modId', 'basePackage', 'classPrefix', 'rootProjectName', 'issuesUrl', 'javaVersion', ...VERSION_KEYS];
   const HASH_EXCLUDE = new Set(['icon', 'banner']);
   const MC_DEPENDENT = ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'modMenuVersion'];
   // form field -> catalog list for the build tooling dropdowns
@@ -47,6 +50,22 @@
     if (auto.classPrefix) state.classPrefix = ModGen.suggestClassPrefix(state.modName, state.modId);
     if (auto.rootProjectName) state.rootProjectName = ModGen.suggestRootProjectName(state.modName, state.modId);
     if (auto.issuesUrl) state.issuesUrl = ModGen.suggestIssuesUrl(state.sourcesUrl);
+    if (catalog && !catalogLoading) {
+      const releases = catalog.minecraftVersions({ snapshots: false });
+      if (auto.minecraftVersion && releases[0]) state.minecraftVersion = releases[0].id;
+      const mc = state.minecraftVersion;
+      const m = catalog.forMinecraft(mc);
+      if (auto.neoformVersion) state.neoformVersion = m.neoform[0] || '';
+      if (auto.neoforgeVersion) state.neoforgeVersion = m.neoforge[0] || '';
+      if (auto.forgeVersion) state.forgeVersion = m.forge[0] || '';
+      if (auto.fabricApiVersion) state.fabricApiVersion = m.fabricApi[0] || '';
+      if (auto.fabricLoaderVersion) state.fabricLoaderVersion = catalog.latestFabricLoader() || state.fabricLoaderVersion;
+      if (auto.modMenuVersion && modMenuCache[mc]) state.modMenuVersion = (modMenuCache[mc][0] || {}).version || '';
+      const tools = catalog.tools();
+      for (const [field, list] of Object.entries(TOOL_FIELDS)) {
+        if (auto[field] && tools[list] && tools[list][0]) state[field] = tools[list][0];
+      }
+    }
     if (auto.javaVersion && knownJava[state.minecraftVersion]) state.javaVersion = knownJava[state.minecraftVersion];
   }
 
@@ -126,8 +145,18 @@
   // ---------------------------------------------------------------------------
   // version catalog
   // ---------------------------------------------------------------------------
+  let catalogRefreshing = false;
   async function loadCatalog(force) {
-    catalogLoading = true;
+    if (!catalog && window.VERSION_DATA) {
+      // bundled lists are available synchronously; the live refresh replaces them when it arrives
+      catalog = new VersionCatalog.Catalog(VersionCatalog.normalizeData(window.VERSION_DATA, 'bundled'));
+      catalogOrigin = 'bundled';
+      catalogLoading = false;
+      Object.assign(knownJava, catalog.data.javaByMinecraft);
+      Object.assign(modMenuCache, catalog.data.modMenu);
+      update({ immediate: true });
+    }
+    catalogRefreshing = true;
     renderVersionsStatus();
     try {
       const r = await VersionCatalog.load({ force });
@@ -142,6 +171,7 @@
       catalogOrigin = 'none';
     }
     catalogLoading = false;
+    catalogRefreshing = false;
     renderVersionsStatus();
     ensureJava(state.minecraftVersion);
     ensureModMenu(state.minecraftVersion);
@@ -170,45 +200,32 @@
     }
   }
 
-  /** Called when the Minecraft version changes: pick the newest matching build for every dependent field. */
+  /** Called when the Minecraft version changes: every dependent field follows the newest build for it again. */
   function applyMinecraftDefaults(mc) {
-    if (!catalog) return;
-    const m = catalog.forMinecraft(mc);
-    state.neoformVersion = m.neoform[0] || '';
-    state.neoforgeVersion = m.neoforge[0] || '';
-    state.forgeVersion = m.forge[0] || '';
-    state.fabricApiVersion = m.fabricApi[0] || '';
-    if (!state.fabricLoaderVersion) state.fabricLoaderVersion = catalog.latestFabricLoader();
-    state.modMenuVersion = ((modMenuCache[mc] || [])[0] || {}).version || '';
-    for (const k of MC_DEPENDENT) customMode.delete(k);
+    for (const k of MC_DEPENDENT) { auto[k] = true; customMode.delete(k); }
+    if (auto.modMenuVersion) state.modMenuVersion = ((modMenuCache[mc] || [])[0] || {}).version || '';
     ensureJava(mc);
     ensureModMenu(mc);
   }
 
   function versionOptions(key, mapped, tools) {
     const mc = state.minecraftVersion;
-    const isTool = key in TOOL_FIELDS;
-    const tpl = (v) => String(v) === String(templateDefaults[key]) && (isTool || mc === templateDefaults.minecraftVersion);
-    const plain = (list) => list.map((v) => ({ value: v, label: v, tpl: tpl(v) }));
-    if (isTool) {
+    const plain = (list) => list.map((v) => ({ value: v, label: v }));
+    if (key in TOOL_FIELDS) {
       const full = (tools && tools[TOOL_FIELDS[key]]) || [];
       const current = String(state[key] || '');
       const list = full.slice(0, TOOL_LIST_LIMIT);
       if (current && !list.includes(current) && full.includes(current)) list.push(current); // keep an older pick visible
-      const options = plain(list);
-      // the template may pin something that is not a plain list entry (e.g. the ForgeGradle range "[7.0.30, 8)")
-      const t = templateDefaults[key];
-      if (t && !options.some((o) => o.value === t)) options.unshift({ value: t, label: t, tpl: true });
-      return options;
+      return plain(list);
     }
     switch (key) {
       case 'minecraftVersion':
         return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({
-          value: v.id, label: v.type === 'release' ? v.id : `${v.id} (${v.type})`, tpl: v.id === templateDefaults.minecraftVersion,
+          value: v.id, label: v.type === 'release' ? v.id : `${v.id} (${v.type})`,
         }));
       case 'javaVersion': {
         const set = new Set([17, 21, 25, knownJava[mc], parseInt(state.javaVersion, 10)].filter((n) => n));
-        return Array.from(set).sort((a, b) => a - b).map((n) => ({ value: n, label: n === knownJava[mc] ? `${n} (required by ${mc})` : String(n), tpl: false }));
+        return Array.from(set).sort((a, b) => a - b).map((n) => ({ value: n, label: n === knownJava[mc] ? `${n} (required by ${mc})` : String(n) }));
       }
       case 'neoformVersion': return plain(mapped.neoform);
       case 'neoforgeVersion': return plain(mapped.neoforge);
@@ -221,10 +238,10 @@
           const cur = mapped.fabricLoader.find((v) => v.version === state.fabricLoaderVersion);
           if (cur) list.push(cur);
         }
-        return list.map((v) => ({ value: v.version, label: v.stable ? `${v.version} (stable)` : v.version, tpl: tpl(v.version) }));
+        return list.map((v) => ({ value: v.version, label: v.stable ? `${v.version} (stable)` : v.version }));
       }
       case 'modMenuVersion':
-        return (modMenuCache[mc] || []).map((v) => ({ value: v.version, label: v.type === 'release' ? v.version : `${v.version} (${v.type})`, tpl: tpl(v.version) }));
+        return (modMenuCache[mc] || []).map((v) => ({ value: v.version, label: v.type === 'release' ? v.version : `${v.version} (${v.type})` }));
       default: return [];
     }
   }
@@ -236,19 +253,15 @@
     for (const sel of $$('select[data-versions]')) {
       const key = sel.dataset.key;
       const value = String(getKey(key) == null ? '' : getKey(key));
-      const input = sel.parentElement.querySelector(`[data-custom-for="${key}"]`);
+      const input = sel.closest('.select-custom') ? sel.closest('.select-custom').querySelector(`[data-custom-for="${key}"]`) : null;
       const customAllowed = !!input;
-      let options = catalog && !catalogLoading ? versionOptions(key, mapped, tools) : (value ? [{ value, label: value, tpl: false }] : []);
+      let options = catalog && !catalogLoading ? versionOptions(key, mapped, tools) : (value ? [{ value, label: value }] : []);
       const inList = options.some((o) => String(o.value) === value);
       const custom = customAllowed && !catalogLoading && (customMode.has(key) || !inList);
 
       if (sel !== active) {
         sel.innerHTML = '';
-        for (const o of options) {
-          const opt = new Option(o.label + (o.tpl ? ' · template' : ''), o.value);
-          if (o.tpl) opt.className = 'tpl';
-          sel.appendChild(opt);
-        }
+        for (const o of options) sel.appendChild(new Option(o.label, o.value));
         if (customAllowed && !catalogLoading) sel.appendChild(new Option('Custom…', CUSTOM));
         if (!customAllowed && !inList && value) sel.appendChild(new Option(value, value));
         sel.value = custom ? CUSTOM : value;
@@ -276,7 +289,7 @@
   function renderVersionsStatus() {
     const el = $('#versions-status');
     const txt = $('#versions-status-text');
-    if (catalogLoading) { el.className = 'versions-status loading'; txt.textContent = 'Loading version lists…'; return; }
+    if (catalogLoading || catalogRefreshing) { el.className = 'versions-status loading'; txt.textContent = 'Loading version lists…'; return; }
     const when = catalog && catalog.fetchedAt ? new Date(catalog.fetchedAt) : null;
     const fmtTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const degraded = Object.entries(catalog.sources)
@@ -341,7 +354,7 @@
       el.textContent = errs.map((e) => e.message).join(' ');
     }
     for (const el of $$('[data-show-if]')) el.hidden = !evalShowIf(el.dataset.showIf);
-    for (const el of $$('[data-auto-label]')) el.textContent = auto[el.dataset.autoLabel] ? 'auto' : 'custom';
+    for (const el of $$('[data-auto-label]')) el.textContent = auto[el.dataset.autoLabel] ? (el.dataset.autoWord || 'auto') : 'custom';
     for (const el of $$('[data-reset-auto]')) el.hidden = auto[el.dataset.resetAuto];
     for (const el of $$('[data-chip]')) el.classList.toggle('on', !!cfg.loaders[el.dataset.chip]);
     for (const el of $$('[data-version-of]')) {
@@ -420,7 +433,7 @@
           if (el.value === CUSTOM) {
             customMode.add(key);
             update({ immediate: true });
-            const input = el.parentElement.querySelector(`[data-custom-for="${key}"]`);
+            const input = el.closest('.select-custom') && el.closest('.select-custom').querySelector(`[data-custom-for="${key}"]`);
             if (input) { input.focus(); input.select(); }
             return;
           }
@@ -444,7 +457,7 @@
     }
     for (const input of $$('[data-custom-for]')) {
       const key = input.dataset.customFor;
-      input.addEventListener('input', () => { customMode.add(key); setKey(key, input.value.trim()); update(); });
+      input.addEventListener('input', () => { customMode.add(key); auto[key] = false; setKey(key, input.value.trim()); update(); });
       if (key === 'minecraftVersion') input.addEventListener('change', () => { applyMinecraftDefaults(input.value.trim()); update(); });
     }
     $('#opt-snapshots').addEventListener('change', (e) => { includeSnapshots = e.target.checked; update({ immediate: true }); });

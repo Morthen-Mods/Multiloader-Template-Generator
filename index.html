@@ -137,9 +137,9 @@
       </div>
       <div class="card-body">
         <div class="field">
-          <label for="f-minecraftVersion">Minecraft</label>
+          <label for="f-minecraftVersion">Minecraft <span class="auto" data-auto-label="minecraftVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-minecraftVersion" data-key="minecraftVersion" data-versions="minecraftVersion" title="Choosing a version selects the newest matching loader builds."></select>
+            <div class="with-button"><select id="f-minecraftVersion" data-key="minecraftVersion" data-versions="minecraftVersion" title="Choosing a version selects the newest matching loader builds."></select><button type="button" class="reset-auto" data-reset-auto="minecraftVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="minecraftVersion" placeholder="e.g. 26.3-rc-1" spellcheck="false" hidden>
           </div>
           <label class="inline-check" title="Also list snapshots, pre-releases and release candidates"><input type="checkbox" id="opt-snapshots"> Include snapshots</label>
@@ -154,45 +154,45 @@
           <div class="error" data-error-for="javaVersion"></div>
         </div>
         <div class="field">
-          <label for="f-neoformVersion">NeoForm</label>
+          <label for="f-neoformVersion">NeoForm <span class="auto" data-auto-label="neoformVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-neoformVersion" data-key="neoformVersion" data-versions="neoformVersion" title="Used by the common project."></select>
+            <div class="with-button"><select id="f-neoformVersion" data-key="neoformVersion" data-versions="neoformVersion" title="Used by the common project."></select><button type="button" class="reset-auto" data-reset-auto="neoformVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="neoformVersion" placeholder="e.g. 26.2-2" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="neoformVersion" hidden></div>
           <div class="error" data-error-for="neoformVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.neoforge|datagen">
-          <label for="f-neoforgeVersion">NeoForge</label>
+          <label for="f-neoforgeVersion">NeoForge <span class="auto" data-auto-label="neoforgeVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-neoforgeVersion" data-key="neoforgeVersion" data-versions="neoforgeVersion" title="Also used by the datagen module."></select>
+            <div class="with-button"><select id="f-neoforgeVersion" data-key="neoforgeVersion" data-versions="neoforgeVersion" title="Also used by the datagen module."></select><button type="button" class="reset-auto" data-reset-auto="neoforgeVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="neoforgeVersion" placeholder="e.g. 26.2.0.86" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="neoforgeVersion" hidden></div>
           <div class="error" data-error-for="neoforgeVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.fabric">
-          <label for="f-fabricLoaderVersion">Fabric Loader</label>
+          <label for="f-fabricLoaderVersion">Fabric Loader <span class="auto" data-auto-label="fabricLoaderVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-fabricLoaderVersion" data-key="fabricLoaderVersion" data-versions="fabricLoaderVersion" title="Independent of the Minecraft version."></select>
+            <div class="with-button"><select id="f-fabricLoaderVersion" data-key="fabricLoaderVersion" data-versions="fabricLoaderVersion" title="Independent of the Minecraft version."></select><button type="button" class="reset-auto" data-reset-auto="fabricLoaderVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="fabricLoaderVersion" placeholder="e.g. 0.19.5" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="fabricLoaderVersion" hidden></div>
           <div class="error" data-error-for="fabricLoaderVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.fabric">
-          <label for="f-fabricApiVersion">Fabric API</label>
+          <label for="f-fabricApiVersion">Fabric API <span class="auto" data-auto-label="fabricApiVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-fabricApiVersion" data-key="fabricApiVersion" data-versions="fabricApiVersion"></select>
+            <div class="with-button"><select id="f-fabricApiVersion" data-key="fabricApiVersion" data-versions="fabricApiVersion"></select><button type="button" class="reset-auto" data-reset-auto="fabricApiVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="fabricApiVersion" placeholder="e.g. 0.160.0+26.2" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="fabricApiVersion" hidden></div>
           <div class="error" data-error-for="fabricApiVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.forge">
-          <label for="f-forgeVersion">Forge</label>
+          <label for="f-forgeVersion">Forge <span class="auto" data-auto-label="forgeVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-forgeVersion" data-key="forgeVersion" data-versions="forgeVersion"></select>
+            <div class="with-button"><select id="f-forgeVersion" data-key="forgeVersion" data-versions="forgeVersion"></select><button type="button" class="reset-auto" data-reset-auto="forgeVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="forgeVersion" placeholder="e.g. 65.1.3" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="forgeVersion" hidden></div>
@@ -279,9 +279,9 @@
           <span class="t-label">Mod Menu (Fabric)</span>
         </label>
         <div class="field" data-show-if="loaders.fabric&amp;modMenu">
-          <label for="f-modMenuVersion">Mod Menu version</label>
+          <label for="f-modMenuVersion">Mod Menu version <span class="auto" data-auto-label="modMenuVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-modMenuVersion" data-key="modMenuVersion" data-versions="modMenuVersion"></select>
+            <div class="with-button"><select id="f-modMenuVersion" data-key="modMenuVersion" data-versions="modMenuVersion"></select><button type="button" class="reset-auto" data-reset-auto="modMenuVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="modMenuVersion" placeholder="e.g. 20.0.2" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="modMenuVersion" hidden></div>
@@ -291,12 +291,12 @@
     </section>
 
     <section class="card">
-      <div class="card-head">Build tooling <span class="hint">defaults follow the template</span></div>
+      <div class="card-head">Build tooling <span class="hint">newest releases by default</span></div>
       <div class="card-body">
         <div class="field">
-          <label for="f-gradleVersion">Gradle</label>
+          <label for="f-gradleVersion">Gradle <span class="auto" data-auto-label="gradleVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-gradleVersion" data-key="gradleVersion" data-versions="gradleVersion" title="Wrapper distribution version."></select>
+            <div class="with-button"><select id="f-gradleVersion" data-key="gradleVersion" data-versions="gradleVersion" title="Wrapper distribution version."></select><button type="button" class="reset-auto" data-reset-auto="gradleVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="gradleVersion" placeholder="e.g. 9.6.1" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="gradleVersion" hidden></div>
@@ -307,54 +307,54 @@
           <input type="text" id="f-jvmArgs" class="mono" data-key="jvmArgs" spellcheck="false" title="org.gradle.jvmargs">
         </div>
         <div class="field">
-          <label for="f-multiloaderPluginVersion">Multiloader plugin</label>
+          <label for="f-multiloaderPluginVersion">Multiloader plugin <span class="auto" data-auto-label="multiloaderPluginVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-multiloaderPluginVersion" data-key="multiloaderPluginVersion" data-versions="multiloaderPluginVersion"></select>
+            <div class="with-button"><select id="f-multiloaderPluginVersion" data-key="multiloaderPluginVersion" data-versions="multiloaderPluginVersion"></select><button type="button" class="reset-auto" data-reset-auto="multiloaderPluginVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="multiloaderPluginVersion" placeholder="e.g. 0.1.12" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="multiloaderPluginVersion" hidden></div>
           <div class="error" data-error-for="multiloaderPluginVersion"></div>
         </div>
         <div class="field">
-          <label for="f-moddevVersion">ModDevGradle</label>
+          <label for="f-moddevVersion">ModDevGradle <span class="auto" data-auto-label="moddevVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-moddevVersion" data-key="moddevVersion" data-versions="moddevVersion" title="Always required (the common project uses it)."></select>
+            <div class="with-button"><select id="f-moddevVersion" data-key="moddevVersion" data-versions="moddevVersion" title="Always required (the common project uses it)."></select><button type="button" class="reset-auto" data-reset-auto="moddevVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="moddevVersion" placeholder="e.g. 2.0.141" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="moddevVersion" hidden></div>
           <div class="error" data-error-for="moddevVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.fabric">
-          <label for="f-loomVersion">Fabric Loom</label>
+          <label for="f-loomVersion">Fabric Loom <span class="auto" data-auto-label="loomVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-loomVersion" data-key="loomVersion" data-versions="loomVersion"></select>
+            <div class="with-button"><select id="f-loomVersion" data-key="loomVersion" data-versions="loomVersion"></select><button type="button" class="reset-auto" data-reset-auto="loomVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="loomVersion" placeholder="e.g. 1.17-SNAPSHOT" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="loomVersion" hidden></div>
           <div class="error" data-error-for="loomVersion"></div>
         </div>
         <div class="field" data-show-if="loaders.forge">
-          <label for="f-forgeGradleVersion">ForgeGradle</label>
+          <label for="f-forgeGradleVersion">ForgeGradle <span class="auto" data-auto-label="forgeGradleVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-forgeGradleVersion" data-key="forgeGradleVersion" data-versions="forgeGradleVersion"></select>
+            <div class="with-button"><select id="f-forgeGradleVersion" data-key="forgeGradleVersion" data-versions="forgeGradleVersion"></select><button type="button" class="reset-auto" data-reset-auto="forgeGradleVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="forgeGradleVersion" placeholder="e.g. [7.0.30, 8)" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="forgeGradleVersion" hidden></div>
           <div class="error" data-error-for="forgeGradleVersion"></div>
         </div>
         <div class="field" data-show-if="modPublish">
-          <label for="f-modPublishPluginVersion">mod-publish-plugin</label>
+          <label for="f-modPublishPluginVersion">mod-publish-plugin <span class="auto" data-auto-label="modPublishPluginVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-modPublishPluginVersion" data-key="modPublishPluginVersion" data-versions="modPublishPluginVersion"></select>
+            <div class="with-button"><select id="f-modPublishPluginVersion" data-key="modPublishPluginVersion" data-versions="modPublishPluginVersion"></select><button type="button" class="reset-auto" data-reset-auto="modPublishPluginVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="modPublishPluginVersion" placeholder="e.g. 2.2.0" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="modPublishPluginVersion" hidden></div>
           <div class="error" data-error-for="modPublishPluginVersion"></div>
         </div>
         <div class="field">
-          <label for="f-foojayVersion">Foojay toolchain resolver</label>
+          <label for="f-foojayVersion">Foojay toolchain resolver <span class="auto" data-auto-label="foojayVersion" data-auto-word="latest">latest</span></label>
           <div class="select-custom">
-            <select id="f-foojayVersion" data-key="foojayVersion" data-versions="foojayVersion"></select>
+            <div class="with-button"><select id="f-foojayVersion" data-key="foojayVersion" data-versions="foojayVersion"></select><button type="button" class="reset-auto" data-reset-auto="foojayVersion" title="Use the newest version again">↺</button></div>
             <input type="text" class="mono" data-custom-for="foojayVersion" placeholder="e.g. 1.0.0" spellcheck="false" hidden>
           </div>
           <div class="help" data-versions-note="foojayVersion" hidden></div>

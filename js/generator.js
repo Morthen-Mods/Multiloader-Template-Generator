@@ -262,7 +262,7 @@
       modName: 'Example Mod',
       modAuthor: '',
       modDescription: '',
-      version: '0.1.0',
+      version: '1.0.0',
       group: 'com.example',
       basePackage: suggestPackage('com.example', 'example_mod'),
       classPrefix: suggestClassPrefix('Example Mod', 'example_mod'),
