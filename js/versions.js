@@ -235,6 +235,8 @@
         ? new RegExp('^' + escapeRe(p.padded) + '\\.0-alpha\\.\\d+\\+' + escapeRe(p.tag) + '$')
         : new RegExp('^' + escapeRe(p.padded) + '\\.\\d+(-[A-Za-z]+)?$');
       out.neoforge = newestFirst(d.neoforge.filter((v) => neoRe.test(v)));
+      // once a release build exists for this Minecraft version, its beta builds are no longer offered
+      if (out.neoforge.some((v) => !v.includes('-'))) out.neoforge = out.neoforge.filter((v) => !/-beta/i.test(v));
 
       // Forge: "<mc>-<forge version>", releases only
       out.forge = newestFirst(d.forge.filter((v) => v.startsWith(id + '-')).map((v) => v.slice(id.length + 1)));

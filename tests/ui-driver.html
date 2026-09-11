@@ -45,6 +45,9 @@
     results.statusText = $('#versions-status-text').textContent;
     results.initial = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
     results.mcOptions = options('f-minecraftVersion');
+    results.apiCounts = {};
+    for (const id of ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion']) results.apiCounts[id] = options('f-' + id).length;
+    results.neoforgeHasBeta = options('f-neoforgeVersion').some((v) => /-beta/i.test(v));
     results.initialFirst = { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] };
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {

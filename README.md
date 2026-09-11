@@ -87,8 +87,9 @@ scripts/bake-versions.py      # runs js/versions.js in headless Chrome and write
 ```
 
 The bake runs Chrome with web security disabled so it can also read the Gradle Plugin Portal; the page itself
-never does that. The build tooling dropdowns show the newest ten versions of each tool; older versions can still be typed in via
-*Custom…*.
+never does that. The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, Fabric API, Mod Menu) show the newest 15 entries,
+the build tooling dropdowns the newest ten; older versions can still be typed in via *Custom…*. NeoForge beta
+builds are hidden as soon as a release build exists for the selected Minecraft version.
 
 ## Weekly refresh (GitHub Actions)
 

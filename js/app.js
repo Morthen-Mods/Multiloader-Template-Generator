@@ -13,6 +13,7 @@
   const MC_DEPENDENT = ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'modMenuVersion'];
   // form field -> catalog list for the build tooling dropdowns
   const TOOL_LIST_LIMIT = 10; // build tooling dropdowns show the newest N versions
+  const API_LIST_LIMIT = 15;  // loader / API dropdowns show the newest N versions
   const TOOL_FIELDS = { gradleVersion: 'gradle', multiloaderPluginVersion: 'multiloaderPlugin', moddevVersion: 'moddev', loomVersion: 'loom', forgeGradleVersion: 'forgeGradle', modPublishPluginVersion: 'modPublishPlugin', foojayVersion: 'foojay' };
   const CUSTOM = '__custom__';
 
@@ -208,16 +209,21 @@
     ensureModMenu(mc);
   }
 
+  /** Newest `limit` entries of `full`, plus the currently selected value if it is further down the list. */
+  function capped(full, key, limit, id = (v) => v) {
+    const current = String(state[key] || '');
+    const list = full.slice(0, limit);
+    if (current && !list.some((v) => id(v) === current)) {
+      const cur = full.find((v) => id(v) === current);
+      if (cur) list.push(cur);
+    }
+    return list;
+  }
+
   function versionOptions(key, mapped, tools) {
     const mc = state.minecraftVersion;
     const plain = (list) => list.map((v) => ({ value: v, label: v }));
-    if (key in TOOL_FIELDS) {
-      const full = (tools && tools[TOOL_FIELDS[key]]) || [];
-      const current = String(state[key] || '');
-      const list = full.slice(0, TOOL_LIST_LIMIT);
-      if (current && !list.includes(current) && full.includes(current)) list.push(current); // keep an older pick visible
-      return plain(list);
-    }
+    if (key in TOOL_FIELDS) return plain(capped((tools && tools[TOOL_FIELDS[key]]) || [], key, TOOL_LIST_LIMIT));
     switch (key) {
       case 'minecraftVersion':
         return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({
@@ -227,21 +233,17 @@
         const set = new Set([17, 21, 25, knownJava[mc], parseInt(state.javaVersion, 10)].filter((n) => n));
         return Array.from(set).sort((a, b) => a - b).map((n) => ({ value: n, label: n === knownJava[mc] ? `${n} (required by ${mc})` : String(n) }));
       }
-      case 'neoformVersion': return plain(mapped.neoform);
-      case 'neoforgeVersion': return plain(mapped.neoforge);
-      case 'forgeVersion': return plain(mapped.forge);
-      case 'fabricApiVersion': return plain(mapped.fabricApi);
-      case 'fabricLoaderVersion': {
-        // Fabric only flags the current recommended loader as stable; show the newest 40 (plus the selected one)
-        const list = mapped.fabricLoader.slice(0, 40);
-        if (state.fabricLoaderVersion && !list.some((v) => v.version === state.fabricLoaderVersion)) {
-          const cur = mapped.fabricLoader.find((v) => v.version === state.fabricLoaderVersion);
-          if (cur) list.push(cur);
-        }
-        return list.map((v) => ({ value: v.version, label: v.stable ? `${v.version} (stable)` : v.version }));
-      }
+      case 'neoformVersion': return plain(capped(mapped.neoform, key, API_LIST_LIMIT));
+      case 'neoforgeVersion': return plain(capped(mapped.neoforge, key, API_LIST_LIMIT));
+      case 'forgeVersion': return plain(capped(mapped.forge, key, API_LIST_LIMIT));
+      case 'fabricApiVersion': return plain(capped(mapped.fabricApi, key, API_LIST_LIMIT));
+      case 'fabricLoaderVersion':
+        // Fabric only flags the current recommended loader as stable
+        return capped(mapped.fabricLoader, key, API_LIST_LIMIT, (v) => v.version)
+          .map((v) => ({ value: v.version, label: v.stable ? `${v.version} (stable)` : v.version }));
       case 'modMenuVersion':
-        return (modMenuCache[mc] || []).map((v) => ({ value: v.version, label: v.type === 'release' ? v.version : `${v.version} (${v.type})` }));
+        return capped(modMenuCache[mc] || [], key, API_LIST_LIMIT, (v) => v.version)
+          .map((v) => ({ value: v.version, label: v.type === 'release' ? v.version : `${v.version} (${v.type})` }));
       default: return [];
     }
   }

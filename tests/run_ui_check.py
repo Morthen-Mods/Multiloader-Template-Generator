@@ -74,6 +74,9 @@ def main():
         (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
         (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
+        (all(0 < c <= 16 for c in results.get("apiCounts", {}).values()) and results.get("apiCounts"), f"loader dropdowns are capped at the newest 15 (+ current pick): {results.get('apiCounts')}"),
+        (results.get("neoforgeHasBeta") is False, "NeoForge hides beta builds once a release build exists (26.2)"),
+        (results.get("after26_1_2", {}).get("neoforgeOptions", 99) <= 16, "NeoForge list for 26.1.2 is capped too"),
     ]
     sc = results.get("snapshotChips")
     if sc:
