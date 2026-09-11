@@ -237,7 +237,6 @@
       // build tooling
       gradleVersion: gradleMatch ? gradleMatch[1] : '',
       jvmArgs: props['org.gradle.jvmargs'] || '-Xmx4096M',
-      gradleDaemon: props['org.gradle.daemon'] !== 'false',
       multiloaderPluginVersion: pluginVersion('net.morthen.gradle.multiloader', ''),
       loomVersion: pluginVersion('net.fabricmc.fabric-loom', ''),
       forgeGradleVersion: pluginVersion('net.minecraftforge.gradle', ''),
@@ -428,7 +427,7 @@
   function genGradleProperties(cfg) {
     const L = [];
     L.push(`org.gradle.jvmargs=${escapePropertiesValue(cfg.jvmArgs || '-Xmx4096M')}`);
-    L.push(`org.gradle.daemon=${cfg.gradleDaemon ? 'true' : 'false'}`);
+    L.push('org.gradle.daemon=true'); // deliberate deviation: the template disables the daemon, we keep it on
     L.push('');
     L.push(`version=${escapePropertiesValue(cfg.version)}`);
     L.push(`group=${escapePropertiesValue(cfg.group)}`);
