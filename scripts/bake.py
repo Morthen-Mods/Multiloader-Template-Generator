@@ -190,6 +190,8 @@ def main() -> int:
             remote = git(["config", "--get", "remote.origin.url"], source)
         except subprocess.CalledProcessError:
             pass
+        # a clone URL may or may not carry the .git suffix; the snapshot should not depend on that
+        remote = re.sub(r"\.git$", "", remote.strip())
 
         default_branch = git(["rev-parse", "--abbrev-ref", "origin/HEAD"], source).split("/")[-1]
         # the remote branches, minus the origin/HEAD symref; fall back to local ones for a checkout without a remote
