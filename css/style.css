@@ -207,13 +207,27 @@ input, select, textarea { font: inherit; color: inherit; }
 /* ---------- loader chips ---------- */
 .loader-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .loader-chip {
+  position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 6px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer; text-align: center; min-width: 0;
+  padding: 10px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer; text-align: center; min-width: 0;
+  color: var(--muted);
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
-.loader-chip input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0 0 2px; }
+.loader-chip:hover { border-color: var(--accent); }
+/* The checkbox is only hidden visually: clicking the chip still toggles it, and it keeps its
+   place in the tab order and the accessibility tree. The chip itself shows the state. */
+.loader-chip input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: 0; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.loader-chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .loader-chip .name { font-weight: 600; }
 .loader-chip .ver { font-size: 14.43px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.loader-chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.loader-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
 .loader-chip.unsupported { opacity: 0.6; cursor: not-allowed; border-style: dashed; background: var(--panel-2); }
 .loader-chip.unsupported input { cursor: not-allowed; }
 .loader-error { grid-column: 1 / -1; color: var(--danger); font-size: 15.13px; }
@@ -272,7 +286,7 @@ input, select, textarea { font: inherit; color: inherit; }
   .card-body { padding: 6px 12px; gap: 4px 10px; }
   .field input[type="text"], .field select, .field textarea, .select-custom input[type="text"] { padding: 3px 8px; }
   .toggle { padding: 2px 9px; }
-  .loader-chip { padding: 4px 4px; gap: 0; }
+  .loader-chip { padding: 7px 4px; gap: 0; }
   .asset .drop { padding: 3px 8px; }
   .field textarea { min-height: 34px; }
 }
