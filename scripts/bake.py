@@ -192,12 +192,22 @@ def main() -> int:
             pass
 
         default_branch = git(["rev-parse", "--abbrev-ref", "origin/HEAD"], source).split("/")[-1]
-        all_branches = [line.split("/")[-1] for line in git(["branch", "-r", "--format=%(refname:short)"], source).splitlines()
-                        if "->" not in line]
+        # the remote branches, minus the origin/HEAD symref; fall back to local ones for a checkout without a remote
+        def branches_under(prefix, ref_root):
+            refs = git(["for-each-ref", "--format=%(refname)", ref_root], source).splitlines()
+            return [r[len(prefix):] for r in refs if r.startswith(prefix) and not r.endswith("/HEAD")]
+        all_branches = branches_under("refs/remotes/origin/", "refs/remotes/origin")
+        if not all_branches:
+            all_branches = branches_under("refs/heads/", "refs/heads")
         wanted = args.branches or [b for b in all_branches if b == default_branch or VERSION_BRANCH_RE.match(b)]
         wanted = sorted(set(wanted), key=lambda b: (b != default_branch, b))
         if default_branch not in wanted:
             raise SystemExit(f"the default branch '{default_branch}' must be baked as the fallback")
+
+        # say out loud which branches are not baked, so a misnamed version branch is noticed
+        skipped = [b for b in all_branches if b not in wanted]
+        if skipped:
+            print(f"skipping branches (no version-shaped name): {', '.join(sorted(skipped))}")
 
         licenses = collect_licenses()
         baked_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
@@ -229,6 +239,9 @@ def main() -> int:
                     "template": info,
                     "files": files,
                 }
+            if manifest_key in entries:
+                raise SystemExit(f"branches '{entries[manifest_key]['branch']}' and '{branch}' both declare "
+                                 f"minecraft_version={mc}; give them distinct target versions")
             entries[manifest_key] = {
                 "branch": branch,
                 "minecraftVersion": mc,
