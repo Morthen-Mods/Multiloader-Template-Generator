@@ -226,9 +226,8 @@
     if (key in TOOL_FIELDS) return plain(capped((tools && tools[TOOL_FIELDS[key]]) || [], key, TOOL_LIST_LIMIT));
     switch (key) {
       case 'minecraftVersion':
-        return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({
-          value: v.id, label: v.type === 'release' ? v.id : `${v.id} (${v.type})`,
-        }));
+        // no type suffix: every non-release id already says what it is (-snapshot-N, -pre-N, -rc-N)
+        return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({ value: v.id, label: v.id }));
       case 'javaVersion': {
         const set = new Set([17, 21, 25, knownJava[mc], parseInt(state.javaVersion, 10)].filter((n) => n));
         return Array.from(set).sort((a, b) => a - b).map((n) => ({ value: n, label: n === knownJava[mc] ? `${n} (required by ${mc})` : String(n) }));
