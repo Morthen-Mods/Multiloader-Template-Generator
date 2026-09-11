@@ -308,7 +308,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .toast.show { opacity: 1; }
 
 /* low windows (laptops): trim the outer spacing so the three columns still fit without scrolling */
-@media (max-height: 820px) and (min-width: 1101px) {
+@media (max-height: 940px) and (min-width: 1101px) {
   .app-main { padding: 6px 14px; gap: 10px; }
   .col { gap: 8px; }
   .app-header { padding: 5px 14px; }
