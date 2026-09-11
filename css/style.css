@@ -78,6 +78,8 @@ input, select, textarea { font: inherit; color: inherit; }
 .btn.primary.invalid { background: var(--danger); border-color: var(--danger); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none; }
 .btn.small { padding: 5px 10px; font-size: 16.5px; font-weight: 500; }
+/* the download button keeps its weight and wider sides, but matches the height of the buttons beside it */
+.toolbar .btn.primary { padding: 5px 13px; font-size: 16.5px; }
 .btn.tiny { padding: 2px 8px; font-size: 15.13px; font-weight: 500; }
 
 /* ---------- three columns of cards ---------- */
