@@ -95,7 +95,8 @@ def main():
         fh.write("// GENERATED FILE - do not edit by hand. Regenerate with scripts/bake-versions.py\n")
         fh.write(f"// Bundled version catalog fetched {data['fetchedAt']}\n")
         fh.write("window.VERSION_DATA = ")
-        json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
+        # sort_keys keeps the output byte-stable across runs (the fetches finish in varying order)
+        json.dump(data, fh, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         fh.write(";\n")
     print(f"wrote {os.path.relpath(args.output, ROOT)} ({os.path.getsize(args.output) // 1024} KiB)")
     return 0

@@ -90,6 +90,15 @@ The bake runs Chrome with web security disabled so it can also read the Gradle P
 never does that. The build tooling dropdowns show the newest ten versions of each tool; older versions can still be typed in via
 *Custom…*.
 
+## Weekly refresh (GitHub Actions)
+
+`.github/workflows/refresh.yml` runs every Monday at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch.
+It re-bakes the template snapshot from the upstream repository and the version catalog, then runs the generator
+suite (including the fidelity comparison), the UI check and a Gradle build of a generated project. Only if all of
+that passes does it commit the regenerated `js/template-data.js` and `js/versions-data.js` to `main`, which
+GitHub Pages then publishes. A failed run leaves the site untouched and shows up as a red workflow run, which is
+the signal that the upstream template changed in a way the generator does not understand yet.
+
 ## Running locally
 
 Open `index.html` in a browser. No build step, no dependencies beyond the vendored `vendor/jszip.min.js`.

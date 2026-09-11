@@ -1,0 +1,83 @@
+# Weekly refresh of the bundled data:
+#   * re-bakes js/template-data.js from the upstream Multiloader-Template
+#   * re-bakes js/versions-data.js (version lists, incl. the Gradle Plugin Portal which browsers cannot read)
+# and commits the result only if the whole verification passes:
+#   generator test suite (incl. byte-for-byte fidelity against upstream), UI interaction check,
+#   and a Gradle build of a generated project.
+#
+# GitHub cron runs in UTC: Monday 00:00 UTC = 01:00 CET (winter) / 02:00 CEST (summer).
+name: Refresh template snapshot and version catalog
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out generator
+        uses: actions/checkout@v4
+
+      - name: Check out upstream template
+        uses: actions/checkout@v4
+        with:
+          repository: Morthen-Mods/Multiloader-Template
+          path: .upstream
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Bake template snapshot
+        run: python3 scripts/bake.py --source .upstream
+
+      - name: Bake version catalog
+        run: python3 scripts/bake-versions.py --wait-ms 90000
+
+      - name: Show what changed
+        run: git --no-pager diff --stat -- js/template-data.js js/versions-data.js || true
+
+      - name: Generator test suite
+        run: python3 tests/run_tests.py --template .upstream
+
+      - name: UI interaction check
+        run: python3 tests/run_ui_check.py
+
+      - name: Build a generated project
+        run: |
+          set -e
+          cd tests/out/full_custom/Cobble-Craft
+          ./gradlew build compileTestmodJava compileGametestJava --no-daemon --console=plain
+
+      - name: Commit and push if anything changed
+        run: |
+          set -e
+          # the bake scripts stamp their output with the run time; only commit real content changes
+          if ! python3 scripts/bundle-changed.py; then
+            git checkout -- js/template-data.js js/versions-data.js
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          upstream=$(git -C .upstream rev-parse --short HEAD)
+          git add js/template-data.js js/versions-data.js
+          git commit -m "Refresh bundled data (template @ ${upstream}, versions $(date -u +%Y-%m-%d))"
+          git push
