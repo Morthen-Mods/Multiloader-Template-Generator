@@ -96,9 +96,9 @@ never does that. The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, 
 the build tooling dropdowns the newest ten; older versions can still be typed in via *Custom…*. NeoForge beta
 builds are hidden as soon as a release build exists for the selected Minecraft version.
 
-## Weekly refresh (GitHub Actions)
+## Daily refresh (GitHub Actions)
 
-`.github/workflows/refresh.yml` runs every Monday at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch.
+`.github/workflows/refresh.yml` runs daily at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch.
 It re-bakes the template snapshot from the upstream repository and the version catalog, then runs the generator
 suite (including a byte-for-byte comparison per branch), the UI check and a Gradle build of a generated project. Only if all of
 that passes does it commit the regenerated `js/templates/` and `js/versions-data.js` to `main`, which

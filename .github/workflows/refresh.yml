@@ -1,16 +1,16 @@
-# Weekly refresh of the bundled data:
+# Daily refresh of the bundled data:
 #   * re-bakes js/templates/ (one snapshot per template branch) from the upstream Multiloader-Template
 #   * re-bakes js/versions-data.js (version lists, incl. the Gradle Plugin Portal which browsers cannot read)
 # and commits the result only if the whole verification passes:
 #   generator test suite (incl. byte-for-byte fidelity against upstream), UI interaction check,
 #   and a Gradle build of a generated project.
 #
-# GitHub cron runs in UTC: Monday 00:00 UTC = 01:00 CET (winter) / 02:00 CEST (summer).
+# GitHub cron runs in UTC: 00:00 UTC = 01:00 CET (winter) / 02:00 CEST (summer).
 name: Refresh template snapshot and version catalog
 
 on:
   schedule:
-    - cron: "0 0 * * 1"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
