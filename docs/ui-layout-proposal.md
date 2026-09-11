@@ -110,6 +110,9 @@ Foojay resolver
 - Die Kachel *Mod* bleibt, wie sie ist, und nimmt die Bilder mit auf. Deren eigene Kachel entfällt.
 - Der Projektinhalt steht in Spalte 2 direkt unter den Loadern, weil er beschreibt, was diese bekommen.
   Damit tragen alle drei Spalten ähnlich viel, und die Werkzeug-Kachel bleibt dauerhaft offen.
+- Ab etwa 1680x1050 passt alles ohne Scrollen. Auf kleineren Bildschirmen scrollt die betroffene Spalte
+  für sich. Abstände und Schriftgrößen bleiben dabei bewusst unverändert: Verdichtete Elemente sehen
+  schlechter aus als eine Bildlaufleiste.
 
 ## Offene Entscheidungen
 
