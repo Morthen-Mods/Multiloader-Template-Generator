@@ -15,8 +15,9 @@
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+/* An inline script in index.html stamps data-theme on <html> before the first paint,
+   from the stored choice or from the system setting, so no media query is needed here. */
+:root[data-theme="dark"] {
     --bg: #0f1216;
     --panel: #171b21;
     --panel-2: #1d222a;
@@ -29,8 +30,9 @@
     --danger: #ef6a5a;
     --ok: #3ddc84;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  }
 }
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
@@ -81,6 +83,12 @@ input, select, textarea { font: inherit; color: inherit; }
 /* the download button keeps its weight and wider sides, but matches the height of the buttons beside it */
 .toolbar .btn.primary { padding: 5px 13px; font-size: 16.5px; }
 .btn.tiny { padding: 2px 8px; font-size: 15.13px; font-weight: 500; }
+.btn.icon { padding: 5px 8px; line-height: 0; }
+.btn.icon svg { width: 19px; height: 19px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* show the mode the click would switch to */
+.btn.icon .i-sun { display: none; }
+:root[data-theme="dark"] .btn.icon .i-sun { display: block; }
+:root[data-theme="dark"] .btn.icon .i-moon { display: none; }
 
 /* ---------- three columns of cards ---------- */
 .app-main {

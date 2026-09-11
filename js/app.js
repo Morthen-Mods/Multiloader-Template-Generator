@@ -461,6 +461,33 @@
   }
 
   // ---------------------------------------------------------------------------
+  // light / dark mode
+  // ---------------------------------------------------------------------------
+  const THEME_KEY = 'modgen.theme';
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    const btn = $('#btn-theme');
+    if (btn) btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  function bindTheme() {
+    applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+    $('#btn-theme').addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private mode */ }
+    });
+    // follow the system as long as the user has not chosen a mode here
+    const media = matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener('change', (e) => {
+      let stored = null;
+      try { stored = localStorage.getItem(THEME_KEY); } catch (err) {}
+      if (!stored) applyTheme(e.matches ? 'dark' : 'light');
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // misc rendering helpers
   // ---------------------------------------------------------------------------
   function objectUrl(key, bytes, type) {
@@ -569,6 +596,7 @@
       });
     }
 
+    bindTheme();
     $('#btn-download').addEventListener('click', download);
     $('#btn-share').addEventListener('click', async () => {
       const h = encodeHash();
