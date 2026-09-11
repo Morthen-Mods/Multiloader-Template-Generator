@@ -50,6 +50,7 @@
     results.neoforgeHasBeta = options('f-neoforgeVersion').some((v) => /-beta/i.test(v));
     results.templateInitial = app().getTemplate();
     results.initialFirst = { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] };
+    results.modPublishPlugin = app().getConfig().modPublishPluginVersion;
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
       const vals = Array.from(sel.options).map((o) => o.value);
@@ -57,7 +58,7 @@
       if (dups.length) results.duplicateOptions[sel.id] = dups;
     }
     results.tools = {};
-    for (const id of ['gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion']) {
+    for (const id of ['gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'foojayVersion']) {
       results.tools[id] = { value: val('f-' + id), count: options('f-' + id).length, first: options('f-' + id)[0] || null };
     }
 

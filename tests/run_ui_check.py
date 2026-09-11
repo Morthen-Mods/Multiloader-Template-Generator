@@ -70,7 +70,7 @@ def main():
         (results.get("tools", {}).get("moddevVersion", {}).get("count", 0) >= 3, "ModDevGradle versions listed"),
         (results.get("tools", {}).get("forgeGradleVersion", {}).get("count", 0) >= 3 and results["tools"]["forgeGradleVersion"]["first"].startswith("7."), "ForgeGradle lists concrete 7.x versions"),
         (results.get("resetToLatest") is True, "the reset button returns a pinned field to the newest version"),
-        (results.get("tools", {}).get("modPublishPluginVersion", {}).get("count", 0) >= 2, "mod-publish-plugin versions come from the bundled list"),
+        (bool(results.get("modPublishPlugin")), "mod-publish-plugin resolves to a version without a control"),
         (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
         (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),

@@ -22,6 +22,7 @@
   // form field -> catalog list for the build tooling dropdowns
   const TOOL_LIST_LIMIT = 10; // build tooling dropdowns show the newest N versions
   const API_LIST_LIMIT = 15;  // loader / API dropdowns show the newest N versions
+  // modPublishPluginVersion has no control of its own: it always tracks the newest release
   const TOOL_FIELDS = { gradleVersion: 'gradle', multiloaderPluginVersion: 'multiloaderPlugin', moddevVersion: 'moddev', loomVersion: 'loom', forgeGradleVersion: 'forgeGradle', modPublishPluginVersion: 'modPublishPlugin', foojayVersion: 'foojay' };
   const CUSTOM = '__custom__';
 
@@ -349,7 +350,7 @@
     }
   }
   const VERSION_LABELS = { neoformVersion: 'NeoForm', neoforgeVersion: 'NeoForge', forgeVersion: 'Forge', fabricApiVersion: 'Fabric API', fabricLoaderVersion: 'Fabric Loader',
-    gradleVersion: 'Gradle', multiloaderPluginVersion: 'Multiloader plugin', moddevVersion: 'ModDevGradle', loomVersion: 'Fabric Loom', forgeGradleVersion: 'ForgeGradle', modPublishPluginVersion: 'mod-publish-plugin', foojayVersion: 'Foojay resolver' };
+    gradleVersion: 'Gradle', multiloaderPluginVersion: 'Multiloader plugin', moddevVersion: 'ModDevGradle', loomVersion: 'Fabric Loom', forgeGradleVersion: 'ForgeGradle', foojayVersion: 'Foojay resolver' };
 
   /** Replace a select's options only if they differ - rebuilding on every update reflows the page and can close open popups. */
   function setOptions(sel, desired) {
