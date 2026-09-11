@@ -262,12 +262,14 @@
       const custom = customAllowed && !catalogLoading && (customMode.has(key) || !inList);
 
       if (sel !== active) {
-        sel.innerHTML = '';
-        for (const o of options) sel.appendChild(new Option(o.label, o.value));
-        if (customAllowed && !catalogLoading) sel.appendChild(new Option('Custom…', CUSTOM));
-        if (!customAllowed && !inList && value) sel.appendChild(new Option(value, value));
-        sel.value = custom ? CUSTOM : value;
-        sel.hidden = customAllowed && options.length === 0 && !catalogLoading;
+        const desired = options.map((o) => [String(o.value), o.label]);
+        if (customAllowed && !catalogLoading) desired.push([CUSTOM, 'Custom…']);
+        if (!customAllowed && !inList && value) desired.push([value, value]);
+        setOptions(sel, desired);
+        const want = custom ? CUSTOM : value;
+        if (sel.value !== want) sel.value = want;
+        const hide = customAllowed && options.length === 0 && !catalogLoading;
+        if (sel.hidden !== hide) sel.hidden = hide;
       }
       if (input) {
         input.hidden = !custom;
@@ -287,6 +289,14 @@
   }
   const VERSION_LABELS = { neoformVersion: 'NeoForm', neoforgeVersion: 'NeoForge', forgeVersion: 'Forge', fabricApiVersion: 'Fabric API', fabricLoaderVersion: 'Fabric Loader', modMenuVersion: 'Mod Menu',
     gradleVersion: 'Gradle', multiloaderPluginVersion: 'Multiloader plugin', moddevVersion: 'ModDevGradle', loomVersion: 'Fabric Loom', forgeGradleVersion: 'ForgeGradle', modPublishPluginVersion: 'mod-publish-plugin', foojayVersion: 'Foojay resolver' };
+
+  /** Replace a select's options only if they differ - rebuilding on every update reflows the page and can close open popups. */
+  function setOptions(sel, desired) {
+    const current = sel.options;
+    if (current.length === desired.length && desired.every((d, i) => current[i].value === d[0] && current[i].text === d[1])) return;
+    sel.innerHTML = '';
+    for (const [v, l] of desired) sel.appendChild(new Option(l, v));
+  }
 
   function renderVersionsStatus() {
     const el = $('#versions-status');
@@ -431,6 +441,7 @@
     for (const el of $$('[data-key]')) {
       const key = el.dataset.key;
       if (el.dataset.versions !== undefined) {
+        el.addEventListener('blur', () => renderVersionSelects());
         el.addEventListener('change', () => {
           if (el.value === CUSTOM) {
             customMode.add(key);
