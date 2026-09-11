@@ -54,7 +54,7 @@ touching the generator.
 
 ## Version lists
 
-The Minecraft, NeoForm, NeoForge, Forge, Fabric Loader, Fabric API and Mod Menu fields, and the build
+The Minecraft, NeoForm, NeoForge, Forge, Fabric Loader and Fabric API fields, and the build
 tooling versions under "Build tooling", are dropdowns.
 Their contents are fetched in the browser when the page opens (cached in `localStorage` for an hour, the
 **Refresh** button bypasses the cache):
@@ -66,7 +66,7 @@ Their contents are fetched in the browser when the page opens (cached in `localS
 | Forge | `maven.minecraftforge.net` Maven metadata |
 | Fabric API | `maven.fabricmc.net` Maven metadata |
 | Fabric Loader | `meta.fabricmc.net` |
-| Mod Menu | Modrinth API, per Minecraft version |
+| Mod Menu | Modrinth API, per Minecraft version. Not a field: the newest build is used when one exists |
 | Gradle | `services.gradle.org/versions/all` (final releases from 8.0) |
 | Multiloader plugin | `maven.morthen.net` version API |
 | ModDevGradle | `maven.neoforged.net` version API |
@@ -92,7 +92,7 @@ scripts/bake-versions.py      # runs js/versions.js in headless Chrome and write
 ```
 
 The bake runs Chrome with web security disabled so it can also read the Gradle Plugin Portal; the page itself
-never does that. The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, Fabric API, Mod Menu) show the newest 15 entries,
+never does that. The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, Fabric API) show the newest 15 entries,
 the build tooling dropdowns the newest ten; older versions can still be typed in via *Custom…*. NeoForge beta
 builds are hidden as soon as a release build exists for the selected Minecraft version.
 

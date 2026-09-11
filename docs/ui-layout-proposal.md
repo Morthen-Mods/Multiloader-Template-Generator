@@ -67,12 +67,12 @@ Die Java-Version steht hier nicht mehr, sie ergibt sich aus der Minecraft-Versio
 ```
 [ Fabric ]   [ Forge ]   [ NeoForge ]
 
-Fabric        Loader          API            Mod Menu
+Fabric        Loader          API
 Forge         Forge version
 NeoForge      NeoForge version
 ```
-Mod Menu hat keinen eigenen Schalter mehr: Es kommt mit Fabric mit, sobald es für die gewählte
-Minecraft-Version einen Build gibt, sonst gar nicht.
+Mod Menu hat weder Schalter noch Versionsauswahl: Es kommt mit Fabric mit, sobald es für die gewählte
+Minecraft-Version einen Build gibt, und dann immer in der neuesten verfügbaren Version.
 
 Jeder Block erscheint nur, wenn der Loader ausgewählt ist. Ist kein Build verfügbar, steht der Hinweis
 direkt beim Block statt wie heute in einer anderen Spalte.

@@ -127,7 +127,7 @@
       if (auto.forgeVersion) state.forgeVersion = m.forge[0] || '';
       if (auto.fabricApiVersion) state.fabricApiVersion = m.fabricApi[0] || '';
       if (auto.fabricLoaderVersion) state.fabricLoaderVersion = catalog.latestFabricLoader() || state.fabricLoaderVersion;
-      if (auto.modMenuVersion && modMenuCache[mc]) state.modMenuVersion = (modMenuCache[mc][0] || {}).version || '';
+      if (modMenuCache[mc]) state.modMenuVersion = (modMenuCache[mc][0] || {}).version || '';   // no control: always the newest
       const tools = catalog.tools();
       for (const [field, list] of Object.entries(TOOL_FIELDS)) {
         if (auto[field] && tools[list] && tools[list][0]) state[field] = tools[list][0];
@@ -305,9 +305,6 @@
         // Fabric only flags the current recommended loader as stable
         return capped(mapped.fabricLoader, key, API_LIST_LIMIT, (v) => v.version)
           .map((v) => ({ value: v.version, label: v.stable ? `${v.version} (stable)` : v.version }));
-      case 'modMenuVersion':
-        return capped(modMenuCache[mc] || [], key, API_LIST_LIMIT, (v) => v.version)
-          .map((v) => ({ value: v.version, label: v.type === 'release' ? v.version : `${v.version} (${v.type})` }));
       default: return [];
     }
   }
@@ -351,7 +348,7 @@
       }
     }
   }
-  const VERSION_LABELS = { neoformVersion: 'NeoForm', neoforgeVersion: 'NeoForge', forgeVersion: 'Forge', fabricApiVersion: 'Fabric API', fabricLoaderVersion: 'Fabric Loader', modMenuVersion: 'Mod Menu',
+  const VERSION_LABELS = { neoformVersion: 'NeoForm', neoforgeVersion: 'NeoForge', forgeVersion: 'Forge', fabricApiVersion: 'Fabric API', fabricLoaderVersion: 'Fabric Loader',
     gradleVersion: 'Gradle', multiloaderPluginVersion: 'Multiloader plugin', moddevVersion: 'ModDevGradle', loomVersion: 'Fabric Loom', forgeGradleVersion: 'ForgeGradle', modPublishPluginVersion: 'mod-publish-plugin', foojayVersion: 'Foojay resolver' };
 
   /** Replace a select's options only if they differ - rebuilding on every update reflows the page and can close open popups. */
