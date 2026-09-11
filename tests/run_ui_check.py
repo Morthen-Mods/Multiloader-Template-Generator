@@ -71,6 +71,7 @@ def main():
         (results.get("tools", {}).get("modPublishPluginVersion", {}).get("count", 0) >= 2, "mod-publish-plugin versions come from the bundled list"),
         (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
         (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ template entry)"),
+        (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
     ]
     sc = results.get("snapshotChips")
     if sc:

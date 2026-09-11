@@ -66,7 +66,12 @@
     return 0;
   }
 
-  const newestFirst = (list, key) => list.slice().sort((a, b) => compareVersions(key ? b[key] : b, key ? a[key] : a));
+  /** Newest first, without duplicates (some Maven repositories list a version twice). */
+  const newestFirst = (list, key) => {
+    const seen = new Set();
+    const unique = list.filter((v) => { const id = key ? v[key] : v; if (seen.has(id)) return false; seen.add(id); return true; });
+    return unique.sort((a, b) => compareVersions(key ? b[key] : b, key ? a[key] : a));
+  };
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   /** "26.1.2" -> parts; "26.3-rc-1" -> tag "rc-1". Returns null for ids outside the year-based scheme. */
@@ -90,7 +95,7 @@
     const out = [];
     const re = /<version>([^<]+)<\/version>/g;
     let m;
-    while ((m = re.exec(text))) out.push(m[1].trim());
+    while ((m = re.exec(text))) { const v = m[1].trim(); if (!out.includes(v)) out.push(v); }
     return out;
   }
 
@@ -101,7 +106,7 @@
     neoforge: (json) => (json.versions || []).filter((v) => parseInt(v, 10) >= MIN_MAJOR),
     forge: (text) => parseMavenXml(text).filter((v) => parseInt(v, 10) >= MIN_MAJOR),
     fabricApi: (text) => parseMavenXml(text).filter((v) => { const i = v.indexOf('+'); return i > 0 && parseInt(v.slice(i + 1), 10) >= MIN_MAJOR; }),
-    fabricLoader: (json) => (json || []).map((v) => ({ version: v.version, stable: !!v.stable })),
+    fabricLoader: (json) => newestFirst((json || []).map((v) => ({ version: v.version, stable: !!v.stable })), 'version'),
 
     // build tooling (already sorted newest first)
     gradle: (json) => newestFirst((json || [])

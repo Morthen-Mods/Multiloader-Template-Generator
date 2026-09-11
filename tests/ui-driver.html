@@ -44,6 +44,12 @@
     results.statusText = $('#versions-status-text').textContent;
     results.initial = { mc: val('f-minecraftVersion'), java: val('f-javaVersion'), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: val('f-modMenuVersion') };
     results.mcOptions = options('f-minecraftVersion');
+    results.duplicateOptions = {};
+    for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
+      const vals = Array.from(sel.options).map((o) => o.value);
+      const dups = vals.filter((v, i) => vals.indexOf(v) !== i);
+      if (dups.length) results.duplicateOptions[sel.id] = dups;
+    }
     results.tools = {};
     for (const id of ['gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion']) {
       results.tools[id] = { value: val('f-' + id), count: options('f-' + id).length, first: options('f-' + id)[0] || null };
