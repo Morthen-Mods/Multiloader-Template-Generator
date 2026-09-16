@@ -42,13 +42,16 @@ def main():
     results = json.loads(html.unescape(m_out.group(1))) if m_out and m_out.group(1).strip() else {}
     print("driver status:", json.dumps(status))
     print(json.dumps(results, indent=1))
+    if results.get("referenceFellBack"):
+        print(f"note: {results['initial'].get('mc')} has incomplete loader builds upstream; "
+              f"newest-build checks re-ran against {results.get('referenceMc')} instead")
     failures = []
     if status.get("status") != "ok":
         failures.append(f"driver: {status}")
     a = results.get("after26_1_2", {})
     checks = [
         (results.get("initial", {}).get("mc") == results.get("mcOptions", [None])[0], "initial Minecraft version is the newest release"),
-        (all(results.get("initial", {}).get(k) == results.get("initialFirst", {}).get(k) for k in ("neoform", "neoforge", "forge", "fabricApi")), "loader fields start on the newest build for that release"),
+        (all(results.get("referenceLoaderFields", {}).get(k) == results.get("referenceInitialFirst", {}).get(k) for k in ("neoform", "neoforge", "forge", "fabricApi")), f"loader fields start on the newest build for that release ({results.get('referenceMc')}{', fell back from ' + results['initial']['mc'] if results.get('referenceFellBack') else ''})"),
         ("26.1.2" in results.get("mcOptions", []) and "26.1" in results.get("mcOptions", []), "release list contains 26.1.x"),
         (a.get("neoform", "").startswith("26.1.2-"), "NeoForm follows the Minecraft switch"),
         (a.get("neoforge", "").startswith("26.1.2."), "NeoForge follows the Minecraft switch"),
@@ -74,8 +77,8 @@ def main():
         (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
         (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
-        (all(0 < c <= 16 for c in results.get("apiCounts", {}).values()) and results.get("apiCounts"), f"loader dropdowns are capped at the newest 15 (+ current pick): {results.get('apiCounts')}"),
-        (results.get("neoforgeHasBeta") is False, "NeoForge hides beta builds once a release build exists (26.2)"),
+        (all(0 < c <= 16 for c in results.get("referenceApiCounts", {}).values()) and results.get("referenceApiCounts"), f"loader dropdowns are capped at the newest 15 (+ current pick) for {results.get('referenceMc')}: {results.get('referenceApiCounts')}"),
+        (results.get("referenceNeoforgeHasBeta") is False, f"NeoForge hides beta builds once a release build exists ({results.get('referenceMc')})"),
         (results.get("templateInitial", {}).get("minecraftVersion") == "26.2", "26.2 uses the 26.2 template"),
         (results.get("templateFor26_1_2", {}).get("minecraftVersion") == "26.1", "26.1.2 falls back to the 26.1 template"),
         (results.get("templateBack", {}).get("minecraftVersion") == "26.2", "switching back returns to the 26.2 template"),

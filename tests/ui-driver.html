@@ -50,6 +50,34 @@
     results.neoforgeHasBeta = options('f-neoforgeVersion').some((v) => /-beta/i.test(v));
     results.templateInitial = app().getTemplate();
     results.initialFirst = { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] };
+
+    // A Minecraft version that just became "newest" can briefly lack full loader support upstream
+    // (no Forge build yet, NeoForge stuck on a beta, ...). That's a timing gap, not an app bug, so
+    // re-check the "starts on the newest build" invariants one Minecraft version back when it happens.
+    const captureReference = () => ({
+      loaderFields: { neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion') },
+      apiCounts: Object.fromEntries(['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion'].map((id) => [id, options('f-' + id).length])),
+      neoforgeHasBeta: options('f-neoforgeVersion').some((v) => /-beta/i.test(v)),
+      initialFirst: { neoform: options('f-neoformVersion')[0], neoforge: options('f-neoforgeVersion')[0], forge: options('f-forgeVersion')[0], fabricApi: options('f-fabricApiVersion')[0] },
+    });
+    const isIncomplete = (ref) => Object.values(ref.apiCounts).some((c) => c === 0) || (ref.neoforgeHasBeta && !options('f-neoforgeVersion').some((v) => !/-beta/i.test(v)));
+    const originalMc = results.initial.mc;
+    let reference = { mc: originalMc, ...captureReference() };
+    if (isIncomplete(reference) && results.mcOptions[1]) {
+      const prevMc = results.mcOptions[1];
+      setSelect('f-minecraftVersion', prevMc);
+      await waitFor(() => val('f-minecraftVersion') === prevMc && val('f-neoformVersion') && val('f-neoformVersion').startsWith(prevMc + '-'), 'loader fields for ' + prevMc);
+      reference = { mc: prevMc, ...captureReference() };
+      setSelect('f-minecraftVersion', originalMc);
+      await waitFor(() => val('f-minecraftVersion') === originalMc, 'restore to ' + originalMc);
+    }
+    results.referenceMc = reference.mc;
+    results.referenceFellBack = reference.mc !== originalMc;
+    results.referenceLoaderFields = reference.loaderFields;
+    results.referenceApiCounts = reference.apiCounts;
+    results.referenceNeoforgeHasBeta = reference.neoforgeHasBeta;
+    results.referenceInitialFirst = reference.initialFirst;
+
     results.modPublishPlugin = app().getConfig().modPublishPluginVersion;
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
