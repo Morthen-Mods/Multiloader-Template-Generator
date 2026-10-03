@@ -1,6 +1,6 @@
 // GENERATED FILE - do not edit by hand. Regenerate with scripts/bake.py
 window.TEMPLATE_MANIFEST = {
- "bakedAt": "2026-10-02T04:37:28+00:00",
+ "bakedAt": "2026-10-03T04:20:08+00:00",
  "defaultBranch": "main",
  "entries": {
   "26.1": {
