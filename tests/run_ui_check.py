@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Drives the real page (index.html) in headless Chrome through tests/ui-driver.html and checks that
-the version dropdowns react to a Minecraft version change, that snapshots map to alpha builds,
-and that the "Custom…" entry works. Needs network access for the live version lists.
+the version dropdowns react to a Minecraft version change (down to the obfuscated 1.21.x line and
+legacy 1.20.1), that versions without a template of their own say so, and that the "Custom…" entry
+works. Needs network access for the live version lists.
 
 Usage: tests/run_ui_check.py [--chrome PATH]
 """
@@ -49,55 +50,66 @@ def main():
     if status.get("status") != "ok":
         failures.append(f"driver: {status}")
     a = results.get("after26_1_2", {})
+    v121 = results.get("v1_21_1", {})
+    v120 = results.get("v1_20_1", {})
+    tools = results.get("tools", {})
+    mc_options = results.get("mcOptions", [])
+    root_build = results.get("rootBuild", "")
     checks = [
-        (results.get("initial", {}).get("mc") == results.get("mcOptions", [None])[0], "initial Minecraft version is the newest release"),
+        (results.get("initial", {}).get("mc") == (mc_options or [None])[0], "initial Minecraft version is the newest release"),
         (all(results.get("referenceLoaderFields", {}).get(k) == results.get("referenceInitialFirst", {}).get(k) for k in ("neoform", "neoforge", "forge", "fabricApi")), f"loader fields start on the newest build for that release ({results.get('referenceMc')}{', fell back from ' + results['initial']['mc'] if results.get('referenceFellBack') else ''})"),
-        ("26.1.2" in results.get("mcOptions", []) and "26.1" in results.get("mcOptions", []), "release list contains 26.1.x"),
+        (all(v in mc_options for v in ("26.1.2", "26.1", "1.21.1", "1.20.1")), "release list reaches back to 1.20.1"),
+        (bool(mc_options) and mc_options[-1] == "1.20.1", "nothing older than 1.20.1 is listed"),
+        (not any(re.search(r"-(rc|pre|snapshot)-|\d\dw\d\d", v) for v in mc_options), "no snapshots, pre-releases or release candidates (the plugin rejects them)"),
         (a.get("neoform", "").startswith("26.1.2-"), "NeoForm follows the Minecraft switch"),
         (a.get("neoforge", "").startswith("26.1.2."), "NeoForge follows the Minecraft switch"),
         (a.get("forge", "").startswith("64."), "Forge follows the Minecraft switch"),
         (a.get("fabricApi", "").endswith("+26.1.2"), "Fabric API follows the Minecraft switch"),
-        (a.get("java") == "25", "Java resolved from the manifest"),
+        (a.get("java") == "25", "Java 25 for 26.1.2"),
         (bool(a.get("modMenu")) and a.get("modMenu") != "__custom__", "Mod Menu resolved from Modrinth"),
         (results.get("configAfterSwitch") == "26.1.2", "the config follows the new Minecraft version"),
-        (results.get("snapshotCount", 0) > len(results.get("mcOptions", [])), "snapshot toggle adds versions"),
-        (not results.get("snapshot") or "alpha" in (results["snapshot"].get("neoforge") or "") or results["snapshot"].get("neoforge") == "", "snapshot maps to NeoForge alpha builds (or none)"),
-        (not results.get("snapshot") or (results["snapshot"].get("neoform") or "").startswith(results["snapshot"]["mc"] + "-") or results["snapshot"].get("neoform") == "", "snapshot maps to a NeoForm build, or to none at all"),
         (results.get("customInputVisible") is True, "Custom… reveals the text input"),
         (any(l == "neoform=26.2-99" for l in results.get("gradleProperties", [])), "custom value reaches gradle.properties"),
+        (not any(l.startswith("java_version=") for l in results.get("gradleProperties", [])), "java_version is left to the plugin"),
+        ("multiloaderSettings {" in root_build and "mod-publish-plugin" not in root_build, "root build uses the plugin 0.2.0 DSL"),
         (results.get("downloadEnabled") is True, "download stays enabled with a custom value"),
         (results.get("leftCustomMode") is True, "picking a list entry leaves custom mode"),
-        (results.get("tools", {}).get("gradleVersion", {}).get("value") == results.get("tools", {}).get("gradleVersion", {}).get("first") and results["tools"]["gradleVersion"]["count"] >= 5, "Gradle dropdown starts on the newest release"),
-        (all(v.get("value") == v.get("first") for v in results.get("tools", {}).values()), "every build tool starts on its newest version"),
-        (results.get("tools", {}).get("multiloaderPluginVersion", {}).get("count", 0) >= 3, "Multiloader plugin versions listed"),
-        (results.get("tools", {}).get("moddevVersion", {}).get("count", 0) >= 3, "ModDevGradle versions listed"),
-        (results.get("tools", {}).get("forgeGradleVersion", {}).get("count", 0) >= 3 and results["tools"]["forgeGradleVersion"]["first"].startswith("7."), "ForgeGradle lists concrete 7.x versions"),
+        (tools.get("gradleVersion", {}).get("value") == tools.get("gradleVersion", {}).get("first") and tools.get("gradleVersion", {}).get("count", 0) >= 5, "Gradle dropdown starts on the newest release"),
+        (all(v.get("value") == v.get("first") for v in tools.values()), "every build tool starts on its newest version"),
+        (tools.get("multiloaderPluginVersion", {}).get("count", 0) >= 1, "Multiloader plugin versions listed"),
+        (all(re.fullmatch(r"\d+(\.\d+)+", v) and tuple(map(int, v.split("."))) >= (0, 2, 0) for v in results.get("pluginOptions", ["x"])), f"only plugin releases from 0.2.0 on are offered ({results.get('pluginOptions')})"),
+        (tools.get("moddevVersion", {}).get("count", 0) >= 3, "ModDevGradle versions listed"),
+        (tools.get("forgeGradleVersion", {}).get("count", 0) >= 3 and tools["forgeGradleVersion"]["first"].startswith("7."), "ForgeGradle lists concrete 7.x versions"),
         (results.get("resetToLatest") is True, "the reset button returns a pinned field to the newest version"),
-        (bool(results.get("modPublishPlugin")), "mod-publish-plugin resolves to a version without a control"),
-        (results.get("tools", {}).get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
-        (all(v.get("count", 0) <= 11 for v in results.get("tools", {}).values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
+        (tools.get("foojayVersion", {}).get("count", 0) >= 1, "Foojay resolver versions listed"),
+        (all(v.get("count", 0) <= 11 for v in tools.values()), "build tool dropdowns are capped at the newest 10 (+ current pick)"),
         (not results.get("duplicateOptions"), f"no duplicate entries in any dropdown ({results.get('duplicateOptions')})"),
         (all(0 < c <= 16 for c in results.get("referenceApiCounts", {}).values()) and results.get("referenceApiCounts"), f"loader dropdowns are capped at the newest 15 (+ current pick) for {results.get('referenceMc')}: {results.get('referenceApiCounts')}"),
         (results.get("referenceNeoforgeHasBeta") is False, f"NeoForge hides beta builds once a release build exists ({results.get('referenceMc')})"),
-        (results.get("templateInitial", {}).get("minecraftVersion") == "26.2", "26.2 uses the 26.2 template"),
+        (results.get("templateNoteInitial") == "", "no template note for the newest release"),
         (results.get("templateFor26_1_2", {}).get("minecraftVersion") == "26.1", "26.1.2 falls back to the 26.1 template"),
         (results.get("templateBack", {}).get("minecraftVersion") == "26.2", "switching back returns to the 26.2 template"),
+        (results.get("templateNoteBack") == "", "the template note disappears again"),
         (bool(results.get("templateFor26_1_2", {}).get("branch")) and results["templateFor26_1_2"]["branch"] in results.get("footer", ""), "the footer names the branch in use"),
-        (not results.get("templateForSnapshot") or results["templateForSnapshot"].get("branch") == results.get("defaultBranch", results["templateForSnapshot"].get("branch")), "a Minecraft snapshot uses a template"),
         (results.get("after26_1_2", {}).get("neoforgeOptions", 99) <= 16, "NeoForge list for 26.1.2 is capped too"),
+        # obfuscated line without a template of its own
+        (v121.get("neoform", "").startswith("1.21.1-2024"), "NeoForm maps to the timestamped 1.21.1 build"),
+        (v121.get("neoforge", "").startswith("21.1."), "NeoForge maps 1.21.1 to 21.1.x"),
+        (v121.get("forge", "").startswith("52."), "Forge maps 1.21.1 to 52.x"),
+        (v121.get("fabricApi", "").endswith("+1.21.1"), "Fabric API maps to +1.21.1"),
+        (v121.get("java") == "21", "Java 21 for 1.21.1"),
+        (v121.get("covered") is False and "1.21.1" in v121.get("note", ""), "1.21.1 has no template of its own and says so"),
+        ('"modImplementation"("com.terraformersmc:modmenu:' in v121.get("fabricBuild", "") and 'withPlugin("net.fabricmc.fabric-loom-remap")' in v121.get("fabricBuild", ""), "Mod Menu is a remapped modImplementation dependency below 26"),
+        (all(v121.get("chips", {}).get(k, {}).get("checked") for k in ("fabric", "forge", "neoforge", "datagen")), "every loader is available for 1.21.1"),
+        # legacy 1.20.1
+        (v120.get("chips", {}).get("neoforge", {}).get("disabled") is True and v120.get("loaders", {}).get("neoforge") is False, "NeoForge is unavailable on 1.20.1"),
+        (v120.get("chips", {}).get("datagen", {}).get("disabled") is False and v120.get("datagen") is True, "datagen stays available on 1.20.1 (ModDevGradle Legacy)"),
+        (v120.get("neoformInactive") is True and v120.get("neoforgeInactive") is True, "NeoForm and NeoForge fields are inactive on 1.20.1"),
+        (not any(l.startswith(("neoform=", "neoforge=")) for l in v120.get("props", [])) and any(l.startswith("forge=47.") for l in v120.get("props", [])), f"gradle.properties for 1.20.1 has no NeoForm/NeoForge ({v120.get('props')})"),
+        (v120.get("java") == "17", "Java 17 for 1.20.1"),
+        (v120.get("downloadEnabled") is True and not v120.get("errors"), f"1.20.1 validates ({v120.get('errors')})"),
+        (all(results.get("chipsAfterReturn", {}).get(k, {}).get("checked") and not results["chipsAfterReturn"][k]["disabled"] for k in ("fabric", "forge", "neoforge", "datagen")), "switching back to 26.2 restores the loader selection"),
     ]
-    sc = results.get("snapshotChips")
-    if sc:
-        snap_forge = results["snapshot"].get("forge") or ""
-        snap_neo = results["snapshot"].get("neoforge") or ""
-        checks += [
-            (sc["forge"]["disabled"] == (snap_forge == "") and sc["forge"]["checked"] == (snap_forge != ""), "Forge chip disabled exactly when the snapshot has no Forge build"),
-            (sc["neoforge"]["disabled"] == (snap_neo == "") and sc["neoforge"]["checked"] == (snap_neo != ""), "NeoForge chip disabled exactly when the snapshot has no NeoForge build"),
-            (sc["datagen"]["disabled"] == (snap_neo == "") and sc["datagen"]["checked"] == (snap_neo != ""), "datagen follows NeoForge availability"),
-            (sc["fabric"]["checked"] and not sc["fabric"]["disabled"], "Fabric stays selectable on the snapshot"),
-            (results.get("snapshotLoaders", {}).get("forge", False) == (snap_forge != ""), "only supported loaders stay enabled"),
-            (all(results["chipsAfterReturn"][k]["checked"] and not results["chipsAfterReturn"][k]["disabled"] for k in ("fabric", "forge", "neoforge", "datagen")), "switching back to 26.2 restores the loader selection"),
-        ]
     for ok, label in checks:
         print(("PASS " if ok else "FAIL ") + label)
         if not ok:

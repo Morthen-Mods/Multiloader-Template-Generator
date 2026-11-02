@@ -1,0 +1,12 @@
+{
+  "defaults": "ui",
+  "expect": "invalid",
+  "errorFields": [
+    "minecraftVersion",
+    "multiloaderPluginVersion"
+  ],
+  "config": {
+    "minecraftVersion": "26.4-snapshot-6",
+    "multiloaderPluginVersion": "0.1.13"
+  }
+}

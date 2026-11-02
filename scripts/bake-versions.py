@@ -5,7 +5,8 @@ Bake the bundled version catalog (js/versions-data.js).
 The web app fetches Minecraft / NeoForm / NeoForge / Forge / Fabric and build-tool versions live in the
 browser; the bundled catalog is the fallback when a request fails (offline, blocked CDN, ...)
 and provides the initial dropdown contents. It is produced with the very same JavaScript
-(js/versions.js) by running scripts/versions-dump.html in headless Chrome.
+(js/versions.js) by running scripts/versions-dump.html in headless Chrome. Every source answers
+browser requests, so the bake needs no special Chrome flags.
 
 Usage: scripts/bake-versions.py [--chrome PATH] [--wait-ms 45000]
 """
@@ -44,10 +45,8 @@ def main():
     chrome = find_chrome(args.chrome)
 
     with tempfile.TemporaryDirectory(prefix="modgen-chrome-") as profile:
-        # --disable-web-security: the Gradle Plugin Portal sends no CORS headers, so the bake (and only the
-        # bake) fetches it without the browser's cross-origin checks; the app itself uses the bundled result.
         cmd = [chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-               "--disable-web-security", f"--user-data-dir={profile}", f"--virtual-time-budget={args.wait_ms}",
+               f"--user-data-dir={profile}", f"--virtual-time-budget={args.wait_ms}",
                "--dump-dom", f"file://{PAGE}"]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=args.wait_ms / 1000 + 120)
     dom = res.stdout
@@ -67,17 +66,19 @@ def main():
         print("warning:", p)
 
     # summary table + sanity checks (the mapping itself lives in js/versions.js)
-    releases = [v["id"] for v in data["minecraft"] if v["type"] == "release"]
+    releases = [v["id"] for v in data["minecraft"]]
     if not releases:
-        sys.exit("no Minecraft releases >= 26 found")
+        sys.exit("no supported Minecraft releases (1.20.1 and newer) found")
     summary = status.get("summary", {})
-    cols = ["java", "neoform", "neoforge", "forge", "fabricLoader", "fabricApi", "modMenu"]
-    print(f"{'Minecraft':<10}" + "".join(f"{c:<18}" for c in cols))
+    cols = ["neoform", "neoforge", "forge", "fabricLoader", "fabricApi", "modMenu"]
+    width = {"neoform": 26}
+    print(f"{'Minecraft':<10}" + "".join(f"{c:<{width.get(c, 18)}}" for c in cols))
     missing = []
     for mc in releases:
         row = summary.get(mc, {})
-        print(f"{mc:<10}" + "".join(f"{str(row.get(c) or '-'):<18}" for c in cols))
-        for c in ("neoform", "neoforge", "fabricApi"):
+        print(f"{mc:<10}" + "".join(f"{str(row.get(c) or '-'):<{width.get(c, 18)}}" for c in cols))
+        # 1.20.1 compiles against MCP and has no NeoForge the plugin supports
+        for c in (("fabricApi",) if mc == "1.20.1" else ("neoform", "neoforge", "fabricApi")):
             if not row.get(c):
                 missing.append(f"{mc}: no {c} version")
     print(f"lists: minecraft={len(data['minecraft'])} neoform={len(data['neoform'])} neoforge={len(data['neoforge'])} "

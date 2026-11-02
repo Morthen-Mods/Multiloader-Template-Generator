@@ -2,28 +2,27 @@
  * versions.js - live version catalog for the generator.
  *
  * Fetches the Minecraft version manifest plus the NeoForm / NeoForge / Forge / Fabric API /
- * Fabric Loader version lists (all endpoints allow browser requests), keeps only Minecraft
- * 26.1 and newer, and maps loader versions to a Minecraft version. Results are cached in
- * localStorage for an hour; window.VERSION_DATA (js/versions-data.js, produced by
- * scripts/bake-versions.py) is the offline / fetch-failure fallback.
+ * Fabric Loader version lists (all endpoints allow browser requests), keeps only what the
+ * multiloader plugin supports (Minecraft releases from 1.20.1 on; snapshots, pre-releases and
+ * release candidates are rejected by the plugin), and maps loader versions to a Minecraft
+ * version. Results are cached in localStorage for an hour; window.VERSION_DATA
+ * (js/versions-data.js, produced by scripts/bake-versions.py) is the offline / fetch-failure fallback.
  *
  *   const { catalog, origin } = await VersionCatalog.load();
- *   catalog.minecraftVersions({ snapshots: false })   // [{ id, type, releaseTime }]
- *   catalog.forMinecraft('26.2')                       // { neoform, neoforge, forge, fabricApi, fabricLoader }
- *   await catalog.javaFor('26.2')                      // 25
- *   await catalog.modMenuFor('26.2')                   // [{ version, type }]
+ *   catalog.minecraftVersions()          // [{ id, releaseTime }], newest first
+ *   catalog.forMinecraft('1.21.1')       // { neoform, neoforge, forge, fabricApi, fabricLoader }
+ *   await catalog.modMenuFor('1.21.1')   // [{ version, type }]
  */
 (function (global) {
   'use strict';
 
-  const MIN_MAJOR = 26;                       // "26.1 and newer"
-  const CACHE_KEY = 'modgen.versionCatalog.v2';
+  const MIN_MINECRAFT = '1.20.1';              // oldest version the multiloader plugin supports
+  const MIN_PLUGIN = '0.2.0';                  // oldest plugin release with the DSL the generator writes
+  const CACHE_KEY = 'modgen.versionCatalog.v3';
   const CACHE_TTL_MS = 60 * 60 * 1000;
   const MODRINTH_API = 'https://api.modrinth.com/v2';
 
   // group "minecraft": mapped per Minecraft version; group "tools": build tooling, independent of Minecraft.
-  // cors:false sources cannot be fetched from a browser page; scripts/bake-versions.py fetches them with
-  // web security disabled so they end up in the bundled catalog.
   const SOURCES = {
     minecraft:    { group: 'minecraft', label: 'Minecraft',     url: 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json' },
     neoform:      { group: 'minecraft', label: 'NeoForm',       url: 'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoform' },
@@ -37,7 +36,6 @@
     moddev:            { group: 'tools', label: 'ModDevGradle',       url: 'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/moddev-gradle' },
     loom:              { group: 'tools', label: 'Fabric Loom',        url: 'https://maven.fabricmc.net/net/fabricmc/fabric-loom/maven-metadata.xml' },
     forgeGradle:       { group: 'tools', label: 'ForgeGradle',        url: 'https://maven.minecraftforge.net/net/minecraftforge/gradle/net.minecraftforge.gradle.gradle.plugin/maven-metadata.xml' },
-    modPublishPlugin:  { group: 'tools', label: 'mod-publish-plugin', url: 'https://plugins.gradle.org/m2/me/modmuss50/mod-publish-plugin/maven-metadata.xml', cors: false },
     foojay:            { group: 'tools', label: 'Foojay resolver',    url: 'https://api.github.com/repos/gradle/foojay-toolchains/tags?per_page=50' },
   };
   const LIST_KEYS = Object.keys(SOURCES);
@@ -72,21 +70,30 @@
     const unique = list.filter((v) => { const id = key ? v[key] : v; if (seen.has(id)) return false; seen.add(id); return true; });
     return unique.sort((a, b) => compareVersions(key ? b[key] : b, key ? a[key] : a));
   };
-  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  /** "26.1.2" -> parts; "26.3-rc-1" -> tag "rc-1". Returns null for ids outside the year-based scheme. */
+  /** Release ids only: "1.21.1", "26.1" (padded "26.1.0"). Returns null for snapshots and anything else. */
   function mcParts(id) {
-    const m = String(id).match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-(.+))?$/);
+    const m = String(id).match(/^(\d+)\.(\d+)(?:\.(\d+))?$/);
     if (!m) return null;
     const patch = m[3] ? +m[3] : 0;
-    return {
-      major: +m[1], minor: +m[2], patch,
-      tag: m[4] || null,
-      base: m[3] ? `${m[1]}.${m[2]}.${m[3]}` : `${m[1]}.${m[2]}`,
-      padded: `${m[1]}.${m[2]}.${patch}`,
-    };
+    return { major: +m[1], minor: +m[2], patch, padded: `${m[1]}.${m[2]}.${patch}` };
   }
-  const isModern = (id) => { const p = mcParts(id); return !!p && p.major >= MIN_MAJOR; };
+  const MIN_PARTS = mcParts(MIN_MINECRAFT);
+  const atLeast = (p, min) => !!p && (p.major - min.major || p.minor - min.minor || p.patch - min.patch) >= 0;
+  /** A Minecraft release the plugin supports. */
+  const isSupported = (id) => atLeast(mcParts(id), MIN_PARTS);
+  // NeoForge's own version: "20.4.237" for 1.20.4 (the "1." dropped) and "26.1.2.7" for 26.1.2
+  const NEOFORGE_OLD_RE = /^(\d+)\.(\d+)\.\d+(-beta)?$/;
+  const NEOFORGE_NEW_RE = /^(\d+)\.(\d+)\.(\d+)\.\d+(-beta)?$/;
+  function neoforgeMinecraft(v) {
+    let m = v.match(NEOFORGE_NEW_RE);
+    if (m) return +m[1] >= 26 ? (m[3] === '0' ? `${m[1]}.${m[2]}` : `${m[1]}.${m[2]}.${m[3]}`) : null;
+    m = v.match(NEOFORGE_OLD_RE);
+    if (m && +m[1] >= 20 && +m[1] < 26) return m[2] === '0' ? `1.${m[1]}` : `1.${m[1]}.${m[2]}`;
+    return null;
+  }
+  // NeoForm: "1.21.1-20240808.144430" up to 1.21.11, "26.1.2-1" from 26.1 on
+  const NEOFORM_RE = /^(\d+\.\d+(?:\.\d+)?)-(\d{8}\.\d{6}|\d+)$/;
 
   // ---------------------------------------------------------------------------
   // parsers (one per source)
@@ -100,35 +107,35 @@
   }
 
   const PARSERS = {
-    minecraft: (json) => (json.versions || []).filter((v) => isModern(v.id))
-      .map((v) => ({ id: v.id, type: v.type, releaseTime: v.releaseTime, url: v.url })),
-    neoform: (json) => (json.versions || []).filter((v) => parseInt(v, 10) >= MIN_MAJOR),
-    neoforge: (json) => (json.versions || []).filter((v) => parseInt(v, 10) >= MIN_MAJOR),
-    forge: (text) => parseMavenXml(text).filter((v) => parseInt(v, 10) >= MIN_MAJOR),
-    fabricApi: (text) => parseMavenXml(text).filter((v) => { const i = v.indexOf('+'); return i > 0 && parseInt(v.slice(i + 1), 10) >= MIN_MAJOR; }),
+    minecraft: (json) => (json.versions || []).filter((v) => v.type === 'release' && isSupported(v.id))
+      .map((v) => ({ id: v.id, releaseTime: v.releaseTime })),
+    neoform: (json) => (json.versions || []).filter((v) => { const m = v.match(NEOFORM_RE); return !!m && isSupported(m[1]); }),
+    neoforge: (json) => (json.versions || []).filter((v) => isSupported(neoforgeMinecraft(v))),
+    forge: (text) => parseMavenXml(text).filter((v) => { const i = v.indexOf('-'); return i > 0 && isSupported(v.slice(0, i)); }),
+    fabricApi: (text) => parseMavenXml(text).filter((v) => { const i = v.indexOf('+'); return i > 0 && isSupported(v.slice(i + 1)); }),
     fabricLoader: (json) => newestFirst((json || []).map((v) => ({ version: v.version, stable: !!v.stable })), 'version'),
 
     // build tooling (already sorted newest first)
     gradle: (json) => newestFirst((json || [])
       .filter((v) => !v.snapshot && !v.nightly && !v.releaseNightly && !v.rcFor && !v.milestoneFor && !v.broken && parseInt(v.version, 10) >= 8)
       .map((v) => v.version)),
-    multiloaderPlugin: (json) => newestFirst(json.versions || []),
+    // only releases that understand the build scripts the generator writes
+    multiloaderPlugin: (json) => newestFirst((json.versions || []).filter((v) => /^\d+(\.\d+)+$/.test(v) && compareVersions(v, MIN_PLUGIN) >= 0)),
     moddev: (json) => newestFirst((json.versions || []).filter((v) => parseInt(v, 10) >= 2)).slice(0, 20),
     // Loom: final releases plus the rolling "<major>.<minor>-SNAPSHOT" lines the template uses
     loom: (text) => newestFirst(parseMavenXml(text).filter((v) => /-SNAPSHOT$/.test(v) || /^\d+\.\d+\.\d+$/.test(v))).slice(0, 20),
     forgeGradle: (text) => newestFirst(parseMavenXml(text)).slice(0, 20),
-    modPublishPlugin: (text) => newestFirst(parseMavenXml(text).filter((v) => /^\d+\.\d+\.\d+$/.test(v))),
     foojay: (json) => newestFirst((json || []).map((t) => t.name || '')
       .filter((n) => n.startsWith('foojay-toolchains-plugin-'))
       .map((n) => n.slice('foojay-toolchains-plugin-'.length))),
   };
-  const TEXT_SOURCES = new Set(['forge', 'fabricApi', 'loom', 'forgeGradle', 'modPublishPlugin']);
+  const TEXT_SOURCES = new Set(['forge', 'fabricApi', 'loom', 'forgeGradle']);
 
   // ---------------------------------------------------------------------------
   // data container
   // ---------------------------------------------------------------------------
   function emptyData() {
-    const d = { fetchedAt: null, sources: {}, javaByMinecraft: {}, modMenu: {} };
+    const d = { fetchedAt: null, sources: {}, modMenu: {} };
     for (const k of LIST_KEYS) d[k] = [];
     return d;
   }
@@ -141,7 +148,6 @@
       if (Array.isArray(raw[k]) && raw[k].length) { d[k] = raw[k]; d.sources[k] = { origin }; }
       else d.sources[k] = { origin: 'none' };
     }
-    d.javaByMinecraft = Object.assign({}, raw.javaByMinecraft || {});
     d.modMenu = Object.assign({}, raw.modMenu || {});
     return d;
   }
@@ -153,9 +159,8 @@
     for (const k of LIST_KEYS) {
       const t = top.sources[k] || { origin: 'none' };
       if (t.origin !== 'none' && t.origin !== 'failed' && top[k].length) { d[k] = top[k]; d.sources[k] = { origin: t.origin }; }
-      else { d[k] = base[k]; d.sources[k] = { origin: (base.sources[k] || {}).origin || 'none', error: t.error, skipped: t.origin === 'skipped' }; }
+      else { d[k] = base[k]; d.sources[k] = { origin: (base.sources[k] || {}).origin || 'none', error: t.error }; }
     }
-    d.javaByMinecraft = Object.assign({}, base.javaByMinecraft, top.javaByMinecraft);
     d.modMenu = Object.assign({}, base.modMenu, top.modMenu);
     return d;
   }
@@ -180,11 +185,10 @@
     return fetch(url, { signal: ctrl ? ctrl.signal : undefined, cache: 'no-cache' }).finally(() => clearTimeout(timer));
   }
 
-  async function fetchLive({ timeoutMs = 20000, all = false } = {}) {
+  async function fetchLive({ timeoutMs = 20000 } = {}) {
     const data = emptyData();
     data.fetchedAt = new Date().toISOString();
     await Promise.all(LIST_KEYS.map(async (key) => {
-      if (SOURCES[key].cors === false && !all) { data[key] = []; data.sources[key] = { origin: 'skipped' }; return; }
       try {
         const res = await fetchWithTimeout(SOURCES[key].url, timeoutMs);
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -208,16 +212,12 @@
     get fetchedAt() { return this.data.fetchedAt; }
     get sources() { return this.data.sources; }
 
-    minecraftVersions({ snapshots = false } = {}) {
-      return this.data.minecraft.filter((v) => snapshots || v.type === 'release');
+    /** Supported Minecraft releases, newest first. */
+    minecraftVersions() {
+      return this.data.minecraft.filter((v) => isSupported(v.id));
     }
 
     hasMinecraft(id) { return this.data.minecraft.some((v) => v.id === id); }
-
-    isSnapshot(id) {
-      const v = this.data.minecraft.find((x) => x.id === id);
-      return v ? v.type !== 'release' : !!(mcParts(id) || {}).tag;
-    }
 
     /** Loader versions that target one Minecraft version, newest first. */
     forMinecraft(id) {
@@ -226,24 +226,21 @@
       const p = mcParts(id);
       if (!p) return out;
 
-      // NeoForm: "<mc>-<n>" (e.g. 26.2-2, 26.3-rc-1-2)
-      const nfRe = new RegExp('^' + escapeRe(id) + '-\\d+$');
-      out.neoform = newestFirst(d.neoform.filter((v) => nfRe.test(v)));
+      // NeoForm: "<mc>-<timestamp>" (1.21.1-20240808.144430) or "<mc>-<n>" (26.2-2)
+      out.neoform = newestFirst(d.neoform.filter((v) => { const m = v.match(NEOFORM_RE); return !!m && m[1] === id; }));
 
-      // NeoForge: releases "<major>.<minor>.<patch>.<build>[-beta]", snapshots "<major>.<minor>.<patch>.0-alpha.<n>+<tag>"
-      const neoRe = p.tag
-        ? new RegExp('^' + escapeRe(p.padded) + '\\.0-alpha\\.\\d+\\+' + escapeRe(p.tag) + '$')
-        : new RegExp('^' + escapeRe(p.padded) + '\\.\\d+(-[A-Za-z]+)?$');
-      out.neoforge = newestFirst(d.neoforge.filter((v) => neoRe.test(v)));
+      // NeoForge: "21.1.<build>" for 1.21.1, "21.0.<build>" for 1.21, "26.1.2.<build>" for 26.1.2 (each maybe "-beta").
+      // 1.20.1 has none: its NeoForge was still published as net.neoforged:forge, which the plugin does not support.
+      const target = p.major === 1 ? `1.${p.minor}${p.patch ? '.' + p.patch : ''}` : (p.patch ? `${p.major}.${p.minor}.${p.patch}` : `${p.major}.${p.minor}`);
+      out.neoforge = newestFirst(d.neoforge.filter((v) => neoforgeMinecraft(v) === target));
       // once a release build exists for this Minecraft version, its beta builds are no longer offered
       if (out.neoforge.some((v) => !v.includes('-'))) out.neoforge = out.neoforge.filter((v) => !/-beta/i.test(v));
 
-      // Forge: "<mc>-<forge version>", releases only
+      // Forge: "<mc>-<forge version>"
       out.forge = newestFirst(d.forge.filter((v) => v.startsWith(id + '-')).map((v) => v.slice(id.length + 1)));
 
-      // Fabric API: "<api>+<mc>"; snapshot builds are tagged with the upcoming release ("+26.3")
+      // Fabric API: "<api>+<mc>"
       out.fabricApi = newestFirst(d.fabricApi.filter((v) => v.endsWith('+' + id)));
-      if (!out.fabricApi.length && p.tag) out.fabricApi = newestFirst(d.fabricApi.filter((v) => v.endsWith('+' + p.base)));
       return out;
     }
 
@@ -258,22 +255,6 @@
       const list = newestFirst(this.data.fabricLoader, 'version');
       const stable = list.find((v) => v.stable);
       return (stable || list[0] || {}).version || '';
-    }
-
-    /** Required Java major version, from Mojang's per-version manifest (lazy, cached). */
-    async javaFor(id) {
-      const known = this.data.javaByMinecraft[id];
-      if (known) return known;
-      const entry = this.data.minecraft.find((v) => v.id === id);
-      if (!entry || !entry.url) return null;
-      const res = await fetchWithTimeout(entry.url, 20000);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      const major = json.javaVersion && json.javaVersion.majorVersion;
-      if (!major) return null;
-      this.data.javaByMinecraft[id] = major;
-      saveCache(this.data);
-      return major;
     }
 
     /** Mod Menu versions for a Minecraft version from Modrinth (lazy, cached). */
@@ -313,5 +294,5 @@
     return { catalog: new Catalog(data), origin };
   }
 
-  global.VersionCatalog = { load, fetchLive, Catalog, compareVersions, newestFirst, mcParts, SOURCES, TOOL_KEYS, MIN_MAJOR, CACHE_KEY, normalizeData, merge };
+  global.VersionCatalog = { load, fetchLive, Catalog, compareVersions, newestFirst, mcParts, isSupported, SOURCES, TOOL_KEYS, MIN_MINECRAFT, CACHE_KEY, normalizeData, merge };
 })(typeof window !== 'undefined' ? window : globalThis);

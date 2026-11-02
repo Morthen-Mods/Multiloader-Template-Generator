@@ -141,6 +141,76 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Minecraft version rules of the multiloader plugin (api/MinecraftVersion.kt):
+  // release versions from 1.20.1 on; 1.20.1 is "legacy" (ModDevGradle Legacy with MCP,
+  // no NeoForm, no NeoForge); below 26 the game is obfuscated (fabric-loom-remap).
+  // ---------------------------------------------------------------------------
+  const MIN_MINECRAFT = '1.20.1';
+  // the first plugin release with the multiloaderSettings { } DSL the build scripts below are written in
+  const MIN_PLUGIN_VERSION = '0.2.0';
+  const RELEASE_RE = /^\d+\.\d+(\.\d+)?$/;
+
+  /** Like the plugin: missing parts count as 0 ("1.21" == "1.21.0", "26" == "26.0.0"). */
+  function compareMinecraft(a, b) {
+    const parts = (v) => { const n = String(v).split('.').map((s) => parseInt(s, 10) || 0); return [n[0] || 0, n[1] || 0, n[2] || 0]; };
+    const A = parts(a), B = parts(b);
+    for (let i = 0; i < 3; i++) if (A[i] !== B[i]) return A[i] < B[i] ? -1 : 1;
+    return 0;
+  }
+  const isRelease = (mc) => RELEASE_RE.test(String(mc || ''));
+  const isSupportedMinecraft = (mc) => isRelease(mc) && compareMinecraft(mc, MIN_MINECRAFT) >= 0;
+  const isLegacy = (mc) => compareMinecraft(mc, '1.20.2') < 0;
+  const isObfuscated = (mc) => compareMinecraft(mc, '26') < 0;
+  /** Java toolchain the plugin picks: below 1.20.5 -> 17, below 26 -> 21, otherwise 25. */
+  function javaFor(mc) {
+    if (compareMinecraft(mc, '26') >= 0) return 25;
+    if (compareMinecraft(mc, '1.20.5') >= 0) return 21;
+    return 17;
+  }
+  /** `common` compiles against NeoForm, except on 1.20.1 where it uses MCP. */
+  const needsNeoform = (cfg) => !isLegacy(cfg.minecraftVersion);
+  /** The neoforge project and (outside 1.20.1) the datagen project run on NeoForge. */
+  const needsNeoforge = (cfg) => !isLegacy(cfg.minecraftVersion) && (!!cfg.loaders.neoforge || !!cfg.datagen);
+
+  /** Numeric compare of the leading dotted part ("0.2.0-BETA" counts as 0.2.0). */
+  function compareDotted(a, b) {
+    const parts = (v) => (String(v).match(/^\d+(\.\d+)*/) || ['0'])[0].split('.').map(Number);
+    const A = parts(a), B = parts(b);
+    for (let i = 0; i < Math.max(A.length, B.length); i++) {
+      const x = A[i] || 0, y = B[i] || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+
+  /**
+   * Which template snapshot serves a Minecraft version. A template serves the version its
+   * gradle.properties declares plus that version's patch releases ("26.1" serves 26.1.2): then
+   * `covered` is true. Any other version gets the newest template that is not newer than it (or
+   * the oldest one, for versions below every template) with `covered` false: the build setup is
+   * still generated for the selected version, but the example sources target another one.
+   */
+  function resolveTemplate(manifest, mc) {
+    const entries = (manifest && manifest.entries) || {};
+    const fallback = { entry: entries.default || null, covered: false };
+    const id = String(mc || '').trim();
+    const list = Object.entries(entries).filter(([, e]) => e && isRelease(e.minecraftVersion));
+    if (!isRelease(id) || !list.length) return fallback;
+    // a dedicated version branch wins over the default branch declaring the same version
+    const better = (a, b, newer) => {
+      const c = compareMinecraft(a[1].minecraftVersion, b[1].minecraftVersion);
+      if (c !== 0) return (newer ? c > 0 : c < 0) ? a : b;
+      if (a[1].minecraftVersion.length !== b[1].minecraftVersion.length) return a[1].minecraftVersion.length > b[1].minecraftVersion.length ? a : b;
+      return a[0] === 'default' ? b : a;
+    };
+    const covering = list.filter(([, e]) => id === e.minecraftVersion || id.startsWith(e.minecraftVersion + '.'));
+    if (covering.length) return { entry: covering.reduce((a, b) => better(a, b, true))[1], covered: true };
+    const older = list.filter(([, e]) => compareMinecraft(e.minecraftVersion, id) <= 0);
+    const pick = older.length ? older.reduce((a, b) => better(a, b, true)) : list.reduce((a, b) => better(a, b, false));
+    return { entry: pick[1], covered: false };
+  }
+
+  // ---------------------------------------------------------------------------
   // Suggestions for derived fields
   // ---------------------------------------------------------------------------
   function suggestModId(modName) {
@@ -197,6 +267,13 @@
     const gradleMatch = wrapper.match(/gradle-([0-9][^/-]*)-(?:bin|all)\.zip/);
     const modmenuMatch = fabricBuild.match(/com\.terraformersmc:modmenu:([^"')]+)/);
     const rootName = (settings.match(/rootProject\.name\s*=\s*"([^"]+)"/) || [])[1];
+    // a branch still on the pre-0.2.0 DSL names an older plugin; the scripts written here need 0.2.0+
+    let pluginDefault = pluginVersion('net.morthen.gradle.multiloader', '');
+    if (pluginDefault && compareDotted(pluginDefault, MIN_PLUGIN_VERSION) < 0) pluginDefault = MIN_PLUGIN_VERSION;
+    // the 0.2.0 DSL opts in with commonRunDirectory; older branches always kept their runs in common/runs
+    const newDsl = /multiloaderSettings\s*\{/.test(rootBuild);
+    const commonRuns = newDsl ? /commonRunDirectory\s*=\s*true/.test(rootBuild) : true;
+    const mc = props.minecraft_version || '';
 
     return {
       // identity
@@ -210,9 +287,9 @@
       basePackage: T.packageName,
       classPrefix: T.classPrefix,
       rootProjectName: rootName || 'Multiloader-Template',
-      javaVersion: parseInt(props.java_version, 10) || 25,
+      javaVersion: javaFor(mc),   // not a setting: the plugin derives it from the Minecraft version
       // versions
-      minecraftVersion: props.minecraft_version || '',
+      minecraftVersion: mc,
       neoformVersion: props.neoform || '',
       neoforgeVersion: props.neoforge || '',
       fabricApiVersion: props.fabric_api || '',
@@ -233,16 +310,15 @@
       sourcesUrl: props.sources_url || '',
       issuesUrl: props.issues_url || '',
       // output
-      includeRunDefaults: true,
+      commonRunDirectory: commonRuns,
       // build tooling
       gradleVersion: gradleMatch ? gradleMatch[1] : '',
       jvmArgs: props['org.gradle.jvmargs'] || '-Xmx4096M',
       gradleDaemon: props['org.gradle.daemon'] !== 'false',
-      multiloaderPluginVersion: pluginVersion('net.morthen.gradle.multiloader', ''),
+      multiloaderPluginVersion: pluginDefault,
       loomVersion: pluginVersion('net.fabricmc.fabric-loom', ''),
       forgeGradleVersion: pluginVersion('net.minecraftforge.gradle', ''),
       moddevVersion: pluginVersion('net.neoforged.moddev', ''),
-      modPublishPluginVersion: pluginVersion('me.modmuss50.mod-publish-plugin', ''),
       foojayVersion: pluginVersion('org.gradle.toolchains.foojay-resolver-convention', ''),
       // binary assets (Uint8Array or null)
       icon: null,
@@ -277,13 +353,14 @@
       if (typeof defaults[k] === 'string' && typeof cfg[k] !== 'string') cfg[k] = cfg[k] == null ? '' : String(cfg[k]);
       if (typeof defaults[k] === 'boolean') cfg[k] = !!cfg[k];
     }
-    cfg.javaVersion = parseInt(cfg.javaVersion, 10) || defaults.javaVersion;
     for (const k of ['modId', 'modName', 'modAuthor', 'version', 'group', 'basePackage', 'classPrefix', 'rootProjectName',
       'minecraftVersion', 'neoformVersion', 'neoforgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'forgeVersion',
       'modrinthId', 'curseforgeId', 'modMenuVersion', 'sourcesUrl', 'issuesUrl', 'gradleVersion', 'jvmArgs',
-      'multiloaderPluginVersion', 'loomVersion', 'forgeGradleVersion', 'moddevVersion', 'modPublishPluginVersion', 'foojayVersion']) {
+      'multiloaderPluginVersion', 'loomVersion', 'forgeGradleVersion', 'moddevVersion', 'foojayVersion']) {
       cfg[k] = cfg[k].trim();
     }
+    // never a setting of its own: the plugin picks the toolchain from the Minecraft version
+    cfg.javaVersion = javaFor(cfg.minecraftVersion);
     return cfg;
   }
 
@@ -330,21 +407,28 @@
     if (!cfg.rootProjectName) err('rootProjectName', 'Project name is required.');
     else if (!PROJECT_NAME_RE.test(cfg.rootProjectName)) err('rootProjectName', 'Project name may only contain letters, digits, ".", "_" and "-".');
 
-    if (!(cfg.javaVersion >= 17 && cfg.javaVersion <= 99)) err('javaVersion', 'Java version must be a number between 17 and 99.');
-    req('minecraftVersion', 'Minecraft version');
-    req('neoformVersion', 'NeoForm version');
+    // the plugin checks this as soon as it is applied
+    if (!cfg.minecraftVersion) err('minecraftVersion', 'Minecraft version is required.');
+    else if (!isRelease(cfg.minecraftVersion)) err('minecraftVersion', 'Only release versions are supported (no snapshots, pre-releases or release candidates).');
+    else if (!isSupportedMinecraft(cfg.minecraftVersion)) err('minecraftVersion', `The multiloader plugin supports Minecraft ${MIN_MINECRAFT} and newer.`);
+    if (needsNeoform(cfg)) req('neoformVersion', 'NeoForm version');
     if (cfg.loaders.fabric) { req('fabricApiVersion', 'Fabric API version'); req('fabricLoaderVersion', 'Fabric Loader version'); }
     if (cfg.loaders.forge) req('forgeVersion', 'Forge version');
-    if (cfg.loaders.neoforge || cfg.datagen) req('neoforgeVersion', 'NeoForge version');
+    if (needsNeoforge(cfg)) req('neoforgeVersion', 'NeoForge version');
     if (cfg.loaders.fabric && cfg.modMenu) req('modMenuVersion', 'Mod Menu version');
     if (!cfg.loaders.fabric && !cfg.loaders.forge && !cfg.loaders.neoforge) err('loaders', 'Select at least one mod loader.');
+    else if (cfg.loaders.neoforge && isSupportedMinecraft(cfg.minecraftVersion) && isLegacy(cfg.minecraftVersion)) {
+      err('loaders', `NeoForge is not available for Minecraft ${cfg.minecraftVersion}; the plugin supports it from 1.20.2 on.`);
+    }
 
     req('gradleVersion', 'Gradle version');
-    req('multiloaderPluginVersion', 'Multiloader plugin version');
+    if (!cfg.multiloaderPluginVersion) err('multiloaderPluginVersion', 'Multiloader plugin version is required.');
+    else if (compareDotted(cfg.multiloaderPluginVersion, MIN_PLUGIN_VERSION) < 0) {
+      err('multiloaderPluginVersion', `The generated build scripts need multiloader plugin ${MIN_PLUGIN_VERSION} or newer.`);
+    }
     req('moddevVersion', 'ModDevGradle version');
     if (cfg.loaders.fabric) req('loomVersion', 'Fabric Loom version');
     if (cfg.loaders.forge) req('forgeGradleVersion', 'ForgeGradle version');
-    if (cfg.modPublish) req('modPublishPluginVersion', 'mod-publish-plugin version');
     req('foojayVersion', 'Foojay resolver version');
 
     for (const f of ['sourcesUrl', 'issuesUrl']) {
@@ -381,7 +465,7 @@
     if (!cfg.gametest && /^[^/]+\/src\/gametest\//.test(path)) return false;
     if (!cfg.testmod && /^[^/]+\/src\/testmod\//.test(path)) return false;
     if (!cfg.mixins && /\.mixins\.json$/.test(path)) return false;
-    if (!cfg.includeRunDefaults && path.startsWith('common/runs/')) return false;
+    if (!cfg.commonRunDirectory && path.startsWith('common/runs/')) return false;
     return true;
   }
 
@@ -393,7 +477,7 @@
     p = p.replace(new RegExp('/' + T.classPrefix + '(Mod|Provider|Test)\\.java$'), `/${ctx.classPrefix}$1.java`);
     p = p.replace(new RegExp('/' + T.modId + '\\.mixins\\.json$'), `/${ctx.modId}.mixins.json`);
     p = p.replace(new RegExp('/' + T.modId + '\\.(fabric|forge|neoforge)\\.mixins\\.json$'), `/${ctx.modId}.$1.mixins.json`);
-    p = p.replace(new RegExp('/' + T.modId + '\\.classtweaker$'), `/${ctx.modId}.classtweaker`);
+    p = p.replace(new RegExp('/' + T.modId + '\\.(classtweaker|accesswidener)$'), `/${ctx.modId}.$1`);
     p = replaceAll(p, `/data/${T.modId}/`, `/data/${ctx.modId}/`);
     p = replaceAll(p, `/data/${T.modId}_gametest/`, `/data/${ctx.modId}_gametest/`);
     p = p.replace(new RegExp('/' + T.modId + '(_banner)?\\.png$'), `/${ctx.modId}$1.png`);
@@ -423,6 +507,10 @@
       if (/(^|\/)fabric\.mod\.json$/.test(path)) t = t.replace(/,\s*"mixins":\s*\[[^\]]*\]/, '');
       if (/neoforge\.mods\.toml$/.test(path)) t = t.replace(/\[\[mixins\]\]\s*\n\s*config\s*=\s*"[^"]*"\s*\n/g, '');
     }
+    if (path === '.gitignore' && !cfg.commonRunDirectory) {
+      // without commonRunDirectory every loader project keeps its game directories in <project>/runs
+      t = t.replace(/\n*$/, '') + '\n/*/runs/\n';
+    }
     return t;
   }
 
@@ -435,11 +523,13 @@
     L.push('');
     L.push(`version=${escapePropertiesValue(cfg.version)}`);
     L.push(`group=${escapePropertiesValue(cfg.group)}`);
-    L.push(`java_version=${cfg.javaVersion}`);
     L.push('');
     if (cfg.modPublish) {
-      L.push(`modrinth_id=${escapePropertiesValue(cfg.modrinthId)}`);
-      L.push(`curseforge_id=${escapePropertiesValue(cfg.curseforgeId)}`);
+      // the plugin uploads to a platform as soon as its key exists, even with an empty value,
+      // so a platform without a project id only gets a commented-out key
+      const id = (key, value) => (value ? `${key}=${escapePropertiesValue(value)}` : `#${key}=`);
+      L.push(id('modrinth_id', cfg.modrinthId));
+      L.push(id('curseforge_id', cfg.curseforgeId));
       L.push('');
     }
     L.push('# Common');
@@ -451,8 +541,8 @@
     L.push(`mod_license=${escapePropertiesValue(licenseLabelForProperties(cfg.modLicense))}`);
     L.push(`mod_description=${escapePropertiesValue(cfg.modDescription)}`);
     L.push('');
-    L.push(`neoform=${escapePropertiesValue(cfg.neoformVersion)}`);
-    if (cfg.loaders.neoforge || cfg.datagen) L.push(`neoforge=${escapePropertiesValue(cfg.neoforgeVersion)}`);
+    if (needsNeoform(cfg)) L.push(`neoform=${escapePropertiesValue(cfg.neoformVersion)}`);
+    if (needsNeoforge(cfg)) L.push(`neoforge=${escapePropertiesValue(cfg.neoforgeVersion)}`);
     if (cfg.loaders.fabric) {
       L.push(`fabric_api=${escapePropertiesValue(cfg.fabricApiVersion)}`);
       L.push(`fabric_loader=${escapePropertiesValue(cfg.fabricLoaderVersion)}`);
@@ -506,100 +596,138 @@ plugins {
     return `${head}rootProject.name = "${cfg.rootProjectName}"\n\nlistOf(${includes}).forEach(::include)\n`;
   }
 
-  function genRootBuild(cfg) {
+  // metadata files that get ${...} placeholders, in this order; only those the project contains are listed
+  const METADATA_PATTERNS = [
+    ['pack.mcmeta', /^[^/]+\/src\/[^/]+\/resources\/pack\.mcmeta$/],
+    ['*.mixins.json', /^[^/]+\/src\/[^/]+\/resources\/[^/]+\.mixins\.json$/],
+    ['fabric.mod.json', /^[^/]+\/src\/[^/]+\/resources\/fabric\.mod\.json$/],
+    ['META-INF/mods.toml', /^[^/]+\/src\/[^/]+\/resources\/META-INF\/mods\.toml$/],
+    ['META-INF/neoforge.mods.toml', /^[^/]+\/src\/[^/]+\/resources\/META-INF\/neoforge\.mods\.toml$/],
+  ];
+
+  /** Minecraft only accepts player names of 3-16 letters, digits and underscores. */
+  const PLAYER_NAME_RE = /^[A-Za-z0-9_]{3,16}$/;
+
+  function genRootBuild(cfg, paths) {
     const P = [];
-    P.push('    id("java")');
-    P.push('    id("idea")');
-    P.push(`    id("net.morthen.gradle.multiloader") version "${cfg.multiloaderPluginVersion}" apply false`);
+    P.push(`    id("net.morthen.gradle.multiloader") version "${cfg.multiloaderPluginVersion}"`);
     P.push('');
     if (cfg.loaders.fabric) P.push(`    id("net.fabricmc.fabric-loom") version "${cfg.loomVersion}" apply false`);
     if (cfg.loaders.forge) P.push(`    id("net.minecraftforge.gradle") version "${cfg.forgeGradleVersion}" apply false`);
     P.push(`    id("net.neoforged.moddev") version "${cfg.moddevVersion}" apply false`);
-    if (cfg.modPublish) {
-      P.push('');
-      P.push(`    id("me.modmuss50.mod-publish-plugin") version "${cfg.modPublishPluginVersion}" apply false`);
-    }
-    return `plugins {\n${P.join('\n')}\n}\n\nsubprojects {\n    pluginManager.apply("idea")\n    idea.module.isDownloadSources = true\n}\n`;
-  }
 
-  function multiloaderBlock(sections) {
-    const body = sections.filter((s) => s && s.length).map((s) => s.join('\n')).join('\n\n');
-    return `plugins {\n    id("net.morthen.gradle.multiloader")\n}\n\nmultiloader {\n${body}\n}\n`;
-  }
+    const sections = [];
+    const features = [];
+    if (cfg.testmod) features.push('    withTestmod()');
+    if (cfg.gametest) features.push('    withGametest()');
+    if (cfg.commonRunDirectory) features.push('    // Game directories of all runs live in common/runs', '    commonRunDirectory = true');
+    sections.push(features);
 
-  function featureLines(cfg, publish) {
-    const L = [];
-    if (cfg.testmod) L.push('    withTestMod()');
-    if (cfg.gametest) L.push('    withGametest()');
-    if (publish && cfg.modPublish) L.push(...publish);
-    return L;
-  }
-
-  function genCommonBuild(cfg) {
-    return multiloaderBlock([
-      ['    neoFormVersion = providers.gradleProperty("neoform")'],
-      featureLines(cfg, null),
+    const patterns = METADATA_PATTERNS.filter(([, re]) => paths.some((p) => re.test(p))).map(([glob]) => `"${glob}"`);
+    const props = [];
+    if (cfg.loaders.fabric) props.push('"fabric_api" to fabricApiVersion', '"fabric_loader" to fabricLoaderVersion');
+    if (cfg.loaders.forge) props.push('"forge_version" to forgeVersion');
+    if (needsNeoforge(cfg)) props.push('"neoforge_version" to neoforgeVersion');
+    props.push('"sources_url" to providers.gradleProperty("sources_url")', '"issues_url" to providers.gradleProperty("issues_url")');
+    sections.push([
+      '    applyMetadataReplacements(',
+      `        listOf(${patterns.join(', ')}),`,
+      '        mapOf(',
+      props.map((p) => `            ${p}`).join(',\n'),
+      '        )',
+      '    )',
     ]);
+
+    const client = ['        register("client") {', '            client()'];
+    // the author doubles as the dev player name, as long as Minecraft would accept it as one
+    if (PLAYER_NAME_RE.test(cfg.modAuthor)) client.push('            programArgs("--username", modAuthor.get())');
+    client.push('            loadedMods.add(modId)', '        }');
+    sections.push([
+      '    runs {',
+      ...client,
+      '        register("server") {',
+      '            server()',
+      '            loadedMods.add(modId)',
+      '        }',
+      '    }',
+    ]);
+
+    if (cfg.modPublish) {
+      const publish = ['    // Uploads to CurseForge (curseforge_id) and Modrinth (modrinth_id)'];
+      if (cfg.loaders.fabric) {
+        publish.push('    withModPublish {', '        dependencies {', '            fabric {', '                requires("fabric-api")');
+        if (cfg.modMenu) publish.push('                optional("modmenu")');
+        publish.push('            }', '        }', '    }');
+      } else {
+        publish.push('    withModPublish { }');
+      }
+      sections.push(publish);
+    }
+
+    const body = sections.filter((s) => s.length).map((s) => s.join('\n')).join('\n\n');
+    return `plugins {\n${P.join('\n')}\n}\n\n`
+      + '// Shared settings for every subproject. Mod info and loader versions are read from gradle.properties.\n'
+      + `multiloaderSettings {\n${body}\n}\n`;
+  }
+
+  function subprojectBuild(loader, extraImports, body) {
+    const imports = ['import net.morthen.gradle.multiloader.api.Loader', ...extraImports].join('\n');
+    const lines = [`    loader = Loader.${loader}`];
+    if (body.length) lines.push('', ...body);
+    return `${imports}\n\nplugins {\n    id("net.morthen.gradle.multiloader")\n}\n\nmultiloader {\n${lines.join('\n')}\n}\n`;
+  }
+
+  function genCommonBuild() {
+    return subprojectBuild('COMMON', [], []);
   }
 
   function genDatagenBuild() {
-    return multiloaderBlock([
-      ['    loader = "datagen"', '    neoForgeVersion = providers.gradleProperty("neoforge")'],
-      ['    applyMetadataReplacements(listOf("pack.mcmeta", "META-INF/neoforge.mods.toml"))'],
-    ]);
+    return subprojectBuild('DATAGEN', [], []);
   }
 
-  function genFabricBuild(cfg) {
-    const publish = ['    withModPublish {', '        required.set(listOf(', '            "fabric-api"', '        ))'];
-    if (cfg.modMenu) publish.push('        optional.set(listOf(', '            "modmenu"', '        ))');
-    publish.push('    }');
-    const patterns = ['"pack.mcmeta"'];
-    if (cfg.mixins) patterns.push('"*.mixins.json"');
-    patterns.push('"fabric.mod.json"');
-    let out = multiloaderBlock([
-      ['    loader = "fabric"'],
-      ['    fabricApiVersion = providers.gradleProperty("fabric_api")', '    fabricLoaderVersion = providers.gradleProperty("fabric_loader")'],
-      featureLines(cfg, publish),
-      [`    applyMetadataReplacements(listOf(${patterns.join(', ')}), mapOf(`,
-        '        "fabric_api" to fabricApiVersion.get(),',
-        '        "fabric_loader" to fabricLoaderVersion.get(),',
-        '        "sources_url" to providers.gradleProperty("sources_url").get(),',
-        '        "issues_url" to providers.gradleProperty("issues_url").get()',
-        '    ))'],
-    ]);
-    if (cfg.modMenu) out += `\ndependencies {\n    implementation("com.terraformersmc:modmenu:${cfg.modMenuVersion}")\n}\n`;
+  /** The Fabric access modifier file the project ships, looked up the way the plugin does (common first). */
+  function fabricModifier(cfg, paths) {
+    for (const [ext, type] of [['classtweaker', 'CLASS_TWEAKER'], ['accesswidener', 'ACCESS_WIDENER']]) {
+      const name = `${cfg.modId}.${ext}`;
+      const re = new RegExp(`^(common|fabric)/src/main/resources/(META-INF/)?${escapeRegExp(name)}$`);
+      if (paths.some((p) => re.test(p))) return { name, type };
+    }
+    return null;
+  }
+
+  function genFabricBuild(cfg, paths) {
+    const modifier = fabricModifier(cfg, paths);
+    const body = modifier ? [`    // ${modifier.name}, from common or fabric`, `    modifierType = ModifierType.${modifier.type}`] : [];
+    let out = subprojectBuild('FABRIC', modifier ? ['import net.morthen.gradle.multiloader.api.ModifierType'] : [], body);
+    if (cfg.modMenu) {
+      const dependency = `"com.terraformersmc:modmenu:${cfg.modMenuVersion}"`;
+      if (!isObfuscated(cfg.minecraftVersion)) {
+        out += `\ndependencies {\n    implementation(${dependency})\n}\n`;
+      } else {
+        // Below 26 the game is obfuscated and mod dependencies go through Loom's remapping configurations.
+        // The plugin applies fabric-loom-remap only after this script has run, so they do not exist yet here.
+        out += '\n// fabric-loom-remap is applied by the multiloader plugin after this script has run,\n'
+          + '// so remapped mod dependencies are added once it is there\n'
+          + 'pluginManager.withPlugin("net.fabricmc.fabric-loom-remap") {\n'
+          + `    dependencies {\n        "modImplementation"(${dependency})\n    }\n}\n`;
+      }
+    }
     return out;
   }
 
   function genForgeBuild(cfg) {
-    const versionLines = ['    forgeVersion = providers.gradleProperty("forge")'];
-    if (cfg.mixins) {
-      versionLines.push('    forgeMixins = listOf(',
-        '        "${ modId.get() }.mixins.json",',
-        '        "${ modId.get() }.forge.mixins.json"',
-        '    )');
-    }
-    return multiloaderBlock([
-      ['    loader = "forge"'],
-      versionLines,
-      featureLines(cfg, ['    withModPublish()']),
-      ['    applyMetadataReplacements(listOf("pack.mcmeta", "META-INF/mods.toml"), mapOf(',
-        '        "forge_version" to forgeVersion.get(),',
-        '        "issues_url" to providers.gradleProperty("issues_url")',
-        '    ))'],
-    ]);
+    const body = cfg.mixins ? [
+      '    // Forge reads the mixin configs from the jar manifest and the run arguments',
+      '    mixins = listOf(',
+      '        "$modId.mixins.json",',
+      '        "$modId.forge.mixins.json"',
+      '    )',
+    ] : [];
+    return subprojectBuild('FORGE', [], body);
   }
 
-  function genNeoForgeBuild(cfg) {
-    return multiloaderBlock([
-      ['    loader = "neoforge"', '    neoForgeVersion = providers.gradleProperty("neoforge")'],
-      featureLines(cfg, ['    withModPublish()']),
-      ['    applyMetadataReplacements(listOf("pack.mcmeta", "META-INF/neoforge.mods.toml"), mapOf(',
-        '        "neoforge_version" to neoForgeVersion.get(),',
-        '        "sources_url" to providers.gradleProperty("sources_url").get(),',
-        '        "issues_url" to providers.gradleProperty("issues_url").get()',
-        '    ))'],
-    ]);
+  function genNeoForgeBuild() {
+    return subprojectBuild('NEOFORGE', [], []);
   }
 
   function genWrapperProperties(cfg, td) {
@@ -674,7 +802,12 @@ prior written consent of the copyright holder.
     L.push('');
     L.push('## Requirements');
     L.push('');
-    L.push(`- JDK ${cfg.javaVersion} (Gradle's toolchain support downloads one automatically if it is missing)`);
+    if (cfg.javaVersion >= 25) {
+      L.push(`- JDK ${cfg.javaVersion} (Gradle's toolchain support downloads one automatically if it is missing)`);
+    } else {
+      // the mod compiles against an older toolchain, but Gradle itself has to run on a JDK the build plugins accept
+      L.push(`- JDK ${cfg.loaders.fabric ? '25 to run Gradle (Fabric Loom needs it)' : '17 or newer to run Gradle'}; the JDK ${cfg.javaVersion} toolchain the mod is compiled with is downloaded automatically if it is missing`);
+    }
     L.push('- Git');
     L.push('');
     L.push('## Project layout');
@@ -682,7 +815,7 @@ prior written consent of the copyright holder.
     L.push('| Module | Purpose |');
     L.push('| --- | --- |');
     L.push('| `common` | Loader-independent code and resources. Compiled into every loader jar. |');
-    if (cfg.datagen) L.push('| `datagen` | Data generators (run on NeoForge). Output is written to `common/src/generated`. |');
+    if (cfg.datagen) L.push(`| \`datagen\` | Data generators (run on ${isLegacy(cfg.minecraftVersion) ? 'ModDevGradle Legacy' : 'NeoForge'}). Output is written to \`common/src/generated\`. |`);
     if (cfg.loaders.fabric) L.push('| `fabric` | Fabric entrypoint, `fabric.mod.json` and Fabric-only code. |');
     if (cfg.loaders.forge) L.push('| `forge` | Forge entrypoint, `mods.toml` and Forge-only code. |');
     if (cfg.loaders.neoforge) L.push('| `neoforge` | NeoForge entrypoint, `neoforge.mods.toml` and NeoForge-only code. |');
@@ -701,7 +834,7 @@ prior written consent of the copyright holder.
     L.push('## Running');
     L.push('');
     L.push('Run configurations are generated for IntelliJ IDEA; on the command line use the Gradle tasks below.');
-    L.push('Game directories live in `common/runs/`.');
+    L.push(cfg.commonRunDirectory ? 'Game directories live in `common/runs/`.' : 'Game directories live in `<project>/runs/`.');
     L.push('');
     L.push('| Task | Description |');
     L.push('| --- | --- |');
@@ -711,8 +844,8 @@ prior written consent of the copyright holder.
     if (cfg.testmod) L.push('| `:<loader>:runTestmodClient` / `runTestmodServer` | Same, with the `testmod` source set loaded as a second mod |');
     if (cfg.gametest) {
       if (cfg.loaders.fabric) L.push('| `:fabric:runGameTests` | Run the game tests on Fabric |');
-      if (cfg.loaders.forge) L.push('| `:forge:runGameTestServer` | Run the game tests on Forge (generates test instances via `:forge:runData` first) |');
-      if (cfg.loaders.neoforge) L.push('| `:neoforge:runGametestServer` | Run the game tests on NeoForge |');
+      if (cfg.loaders.forge) L.push('| `:forge:runGametestGameTestServer` | Run the game tests on Forge (generates test instances via `:forge:runGametestData` first) |');
+      if (cfg.loaders.neoforge) L.push('| `:neoforge:runGameTests` | Run the game tests on NeoForge |');
     }
     if (cfg.datagen) L.push('| `:datagen:runData` | Run data generation; writes into `common/src/generated` |');
     L.push('');
@@ -727,7 +860,9 @@ prior written consent of the copyright holder.
       L.push('./gradlew publishMods');
       L.push('```');
       L.push('');
-      L.push('A platform is skipped automatically when its id/token pair is missing. `CHANGELOG.md` is used as the release changelog.');
+      L.push('A platform is used as soon as its `modrinth_id` / `curseforge_id` entry exists in `gradle.properties`,');
+      L.push('so leave the entry of a platform you don\'t publish to commented out. `CHANGELOG.md` is used as the release changelog.');
+      L.push('Add `-Pmod_publish_dry_run=true` to test the upload without publishing anything.');
       L.push('');
     }
     if (cfg.modLicense !== 'NONE') {
@@ -774,21 +909,22 @@ prior written consent of the copyright holder.
       }
     }
 
-    // regenerated top-level files
+    // regenerated top-level files; the build scripts look at which files the project ended up with
+    const paths = Array.from(out.keys());
     put('gradle.properties', { text: genGradleProperties(cfg) });
     put('settings.gradle.kts', { text: genSettings(cfg, td) });
-    put('build.gradle.kts', { text: genRootBuild(cfg) });
+    put('build.gradle.kts', { text: genRootBuild(cfg, paths) });
     put('gradle/wrapper/gradle-wrapper.properties', { text: genWrapperProperties(cfg, td) });
     put('README.md', { text: genReadme(cfg, td) });
     put('CHANGELOG.md', { text: genChangelog(cfg) });
     const license = genLicense(cfg, td.licenses || global.LICENSE_DATA);
     if (license) put('LICENSE', { text: license });
 
-    put('common/build.gradle.kts', { text: genCommonBuild(cfg) });
-    if (cfg.datagen) put('datagen/build.gradle.kts', { text: genDatagenBuild(cfg) });
-    if (cfg.loaders.fabric) put('fabric/build.gradle.kts', { text: genFabricBuild(cfg) });
+    put('common/build.gradle.kts', { text: genCommonBuild() });
+    if (cfg.datagen) put('datagen/build.gradle.kts', { text: genDatagenBuild() });
+    if (cfg.loaders.fabric) put('fabric/build.gradle.kts', { text: genFabricBuild(cfg, paths) });
     if (cfg.loaders.forge) put('forge/build.gradle.kts', { text: genForgeBuild(cfg) });
-    if (cfg.loaders.neoforge) put('neoforge/build.gradle.kts', { text: genNeoForgeBuild(cfg) });
+    if (cfg.loaders.neoforge) put('neoforge/build.gradle.kts', { text: genNeoForgeBuild() });
 
     // optional binary assets referenced by the loader metadata files
     // the template ships placeholder artwork; an upload takes its place
@@ -820,11 +956,16 @@ prior written consent of the copyright holder.
     return Array.from(out.values()).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   }
 
-  /** Datagen provider names as they appear in .cache headers (unquoted, so rewriteText() does not cover them). */
+  /**
+   * Datagen provider names as they appear in .cache headers (unquoted, so rewriteText() does not cover them),
+   * e.g. "Example Mod Recipe Provider", "Tags for minecraft:item mod id example_mod",
+   * "Registries for Reloadable (example_mod[0]): [example_mod]", "example_mod-global/Tags for ...".
+   * The mod id is replaced wherever it stands on its own or before a suffix such as "_gametest".
+   */
   function rewriteProviderName(name, ctx) {
     const T = ctx.T;
-    let n = replaceAll(name, `${T.modName} Recipe Provider`, `${ctx.modName} Recipe Provider`);
-    n = n.replace(new RegExp(' mod id ' + escapeRegExp(T.modId) + '$'), ` mod id ${ctx.modId}`);
+    let n = name.replace(new RegExp(escapeRegExp(T.modName) + '(?= |$)', 'g'), ctx.modName);
+    n = n.replace(new RegExp('(^|[^a-z0-9_])' + escapeRegExp(T.modId) + '(?![a-z0-9])', 'g'), `$1${ctx.modId}`);
     return n;
   }
 
@@ -848,9 +989,10 @@ prior written consent of the copyright holder.
   }
 
   global.ModGen = {
-    LICENSES, JAVA_KEYWORDS, templateOf,
+    LICENSES, JAVA_KEYWORDS, MIN_MINECRAFT, MIN_PLUGIN_VERSION, templateOf, resolveTemplate,
     templateDefaults, uiDefaults, normalizeConfig, validate, generate, buildZip,
     suggestModId, suggestClassPrefix, suggestRootProjectName, suggestPackage, suggestIssuesUrl,
+    compareMinecraft, isRelease, isSupportedMinecraft, isLegacy, isObfuscated, javaFor, needsNeoform, needsNeoforge,
     enabledSubprojects, sha1Hex, entryBytes, escapePropertiesValue, parseProperties,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

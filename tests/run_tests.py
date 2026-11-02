@@ -9,7 +9,8 @@ produced ZIP, extracts it to tests/out/<name>/ and checks the result:
   * loader / feature toggles add and remove exactly the expected files
   * gradlew is executable inside the ZIP
   * datagen .cache files are consistent with the generated data files
-  * the "fidelity" config (pure template defaults) reproduces the upstream template
+  * the "fidelity" configs (pure template defaults) reproduce the upstream branches
+  * versions without a template of their own fall back to the expected branch
 
 Usage: tests/run_tests.py [--chrome PATH] [--template PATH_TO_UPSTREAM_CHECKOUT] [--only NAME]
 Exit code is non-zero when any check fails.
@@ -44,6 +45,15 @@ ALLOWED_UPSTREAM = [
     "github.com/Morthen-Mods/",         # README links back to the template + plugin
 ]
 TEXT_EXT = {".java", ".kts", ".json", ".toml", ".mcmeta", ".cfg", ".classtweaker", ".txt", ".properties", ".md", "", ".bat", ".gitignore", ".gitattributes"}
+
+
+def mc_compare(a, b):
+    """Like the plugin: missing parts count as 0 ("1.21" == "1.21.0")."""
+    def parts(v):
+        n = [int(x) if x.isdigit() else 0 for x in str(v).split(".")]
+        return (n + [0, 0, 0])[:3]
+    pa, pb = parts(a), parts(b)
+    return (pa > pb) - (pa < pb)
 
 
 def find_chrome(explicit):
@@ -162,6 +172,13 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
         r.check(f"gradle-{cfg['gradleVersion']}-" in wp, f"wrapper does not reference gradle {cfg['gradleVersion']}: {wp}")
 
     # 3. structure
+    mc = cfg["minecraftVersion"]
+    legacy = mc_compare(mc, "1.20.2") < 0
+    obfuscated = mc_compare(mc, "26") < 0
+    expected_java = 25 if not obfuscated else (21 if mc_compare(mc, "1.20.5") >= 0 else 17)
+    needs_neoforge = not legacy and (loaders["neoforge"] or cfg["datagen"])
+    r.check(cfg["javaVersion"] == expected_java, f"java {cfg['javaVersion']} for Minecraft {mc}, expected {expected_java}")
+
     r.check("common/build.gradle.kts" in files, "common/build.gradle.kts missing")
     r.check(f"common/src/main/java/{pkg_path}/CommonConstants.java" in files, "CommonConstants.java not in configured package")
     r.check(f"common/src/main/resources/{modid}.classtweaker" in files, "classtweaker not renamed")
@@ -169,8 +186,48 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
     r.check(f'rootProject.name = "{cfg["rootProjectName"]}"' in settings, "rootProject.name wrong")
     root_build = files["build.gradle.kts"]["data"].decode()
     props = files["gradle.properties"]["data"].decode()
+    prop_keys = {l.split("=", 1)[0] for l in props.splitlines() if "=" in l and not l.startswith("#")}
     r.check(f"mod_id={modid}\n" in props, "mod_id missing in gradle.properties")
     r.check(f"version={cfg['version']}\n" in props, "version missing in gradle.properties")
+    r.check("java_version" not in prop_keys, "java_version is derived by the plugin and must not be written")
+    r.check(f"minecraft_version={mc}\n" in props, "minecraft_version missing in gradle.properties")
+    r.check(("neoform" in prop_keys) == (not legacy), f"neoform presence wrong (legacy={legacy})")
+    r.check(("neoforge" in prop_keys) == needs_neoforge, f"neoforge presence wrong (expected {needs_neoforge})")
+    r.check(("fabric_api" in prop_keys) == loaders["fabric"] and ("fabric_loader" in prop_keys) == loaders["fabric"], "fabric versions presence wrong")
+    r.check(("forge" in prop_keys) == loaders["forge"], "forge version presence wrong")
+    for key, field in (("modrinth_id", "modrinthId"), ("curseforge_id", "curseforgeId")):
+        if not cfg["modPublish"]:
+            r.check(f"{key}=" not in props, f"{key} written although publishing is off")
+        elif cfg[field]:
+            r.check(f"\n{key}={cfg[field]}\n" in props, f"{key} value missing")
+        else:
+            # the plugin enables a platform as soon as the key exists, so an unset id stays commented out
+            r.check(f"\n#{key}=\n" in props and key not in prop_keys, f"{key} must be commented out while unset")
+
+    # root build: the plugin is applied here and holds every shared setting
+    r.check(f'id("net.morthen.gradle.multiloader") version "{cfg["multiloaderPluginVersion"]}"\n' in root_build, "multiloader plugin not applied with its version in the root build")
+    r.check("multiloaderSettings {" in root_build, "multiloaderSettings block missing")
+    r.check("subprojects {" not in root_build and 'id("java")' not in root_build, "pre-0.2.0 root build leftovers")
+    r.check("mod-publish-plugin" not in root_build, "mod-publish-plugin ships with the multiloader plugin and must not be declared")
+    r.check(("fabric-loom" in root_build) == loaders["fabric"], "loom plugin presence wrong in root build")
+    r.check(("net.minecraftforge.gradle" in root_build) == loaders["forge"], "forgegradle plugin presence wrong in root build")
+    r.check('net.neoforged.moddev' in root_build, "moddev plugin must always be present (common uses it)")
+    r.check(("withTestmod()" in root_build) == cfg["testmod"], "withTestmod presence wrong")
+    r.check(("withGametest()" in root_build) == cfg["gametest"], "withGametest presence wrong")
+    r.check(("withModPublish" in root_build) == cfg["modPublish"], "withModPublish presence wrong")
+    r.check(("commonRunDirectory = true" in root_build) == cfg["commonRunDirectory"], "commonRunDirectory presence wrong")
+    r.check(('requires("fabric-api")' in root_build) == (cfg["modPublish"] and loaders["fabric"]), "fabric-api publish dependency wrong")
+    r.check(('optional("modmenu")' in root_build) == (cfg["modPublish"] and loaders["fabric"] and cfg["modMenu"]), "modmenu publish dependency wrong")
+    r.check(('"fabric_api" to fabricApiVersion' in root_build) == loaders["fabric"], "fabric_api placeholder presence wrong")
+    r.check(('"forge_version" to forgeVersion' in root_build) == loaders["forge"], "forge_version placeholder presence wrong")
+    r.check(('"neoforge_version" to neoforgeVersion' in root_build) == needs_neoforge, "neoforge_version placeholder presence wrong")
+    valid_player = re.fullmatch(r"[A-Za-z0-9_]{3,16}", cfg["modAuthor"] or "") is not None
+    r.check(('"--username"' in root_build) == valid_player, f"--username presence wrong for author {cfg['modAuthor']!r}")
+    resource_re = r"^[^/]+/src/[^/]+/resources/"
+    for glob, rx in (("*.mixins.json", r"[^/]+\.mixins\.json$"), ("fabric.mod.json", r"fabric\.mod\.json$"),
+                     ("META-INF/mods.toml", r"META-INF/mods\.toml$"), ("META-INF/neoforge.mods.toml", r"META-INF/neoforge\.mods\.toml$")):
+        has_file = any(re.match(resource_re + rx, p) for p in files)
+        r.check((f'"{glob}"' in root_build) == has_file, f"placeholder pattern {glob}: listed={f'\"{glob}\"' in root_build}, matching file present={has_file}")
 
     for loader in ("fabric", "forge", "neoforge"):
         present = any(p.startswith(loader + "/") for p in files)
@@ -180,11 +237,14 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
             r.check(f"{loader}/src/main/java/{pkg_path}/{cfg['classPrefix']}Mod.java" in files, f"{loader} entry class missing/misnamed")
             svc = f"{loader}/src/main/resources/META-INF/services/{cfg['basePackage']}.service.platform.IPlatformHelper"
             r.check(svc in files, f"service file missing: {svc}")
-    r.check(('fabric-loom' in root_build) == loaders["fabric"], "loom plugin presence wrong in root build")
-    r.check(('net.minecraftforge.gradle' in root_build) == loaders["forge"], "forgegradle plugin presence wrong in root build")
-    r.check('net.neoforged.moddev' in root_build, "moddev plugin must always be present (common uses it)")
-    r.check(('mod-publish-plugin' in root_build) == cfg["modPublish"], "mod-publish-plugin presence wrong in root build")
-    r.check(("modrinth_id=" in props) == cfg["modPublish"], "modrinth_id presence wrong in gradle.properties")
+    for sub in ("common", "datagen", "fabric", "forge", "neoforge"):
+        p = f"{sub}/build.gradle.kts"
+        if p not in files:
+            continue
+        b = files[p]["data"].decode()
+        r.check("import net.morthen.gradle.multiloader.api.Loader\n" in b, f"{p}: Loader import missing")
+        r.check(f"loader = Loader.{sub.upper()}\n" in b, f"{p}: loader not set to Loader.{sub.upper()}")
+        r.check(not re.search(r"withTestMod|withGametest|withModPublish|applyMetadataReplacements|Version = providers", b), f"{p}: shared settings belong into the root build")
 
     datagen_present = any(p.startswith("datagen/") for p in files)
     r.check(datagen_present == cfg["datagen"], f"datagen present={datagen_present} expected={cfg['datagen']}")
@@ -193,20 +253,11 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
     if cfg["datagen"]:
         r.check(f"common/src/generated/data/{modid}/recipe/diamond.json" in files, "generated recipe not renamed to mod id")
         r.check(('"datagen"' in settings), "datagen missing from settings include")
-        r.check("neoforge=" in props, "neoforge version required for datagen")
 
     gt_present = any("/src/gametest/" in p for p in files)
     r.check(gt_present == cfg["gametest"], f"gametest present={gt_present} expected={cfg['gametest']}")
     tm_present = any("/src/testmod/" in p for p in files)
     r.check(tm_present == cfg["testmod"], f"testmod present={tm_present} expected={cfg['testmod']}")
-    for sub in ("common", "fabric", "forge", "neoforge"):
-        p = f"{sub}/build.gradle.kts"
-        if p in files:
-            b = files[p]["data"].decode()
-            r.check(("withGametest()" in b) == cfg["gametest"], f"{p}: withGametest presence wrong")
-            r.check(("withTestMod()" in b) == cfg["testmod"], f"{p}: withTestMod presence wrong")
-            if sub != "common":
-                r.check(("withModPublish" in b) == cfg["modPublish"], f"{p}: withModPublish presence wrong")
 
     mixin_files = [p for p in files if p.endswith(".mixins.json")]
     r.check(bool(mixin_files) == cfg["mixins"], f"mixin files present={bool(mixin_files)} expected={cfg['mixins']}")
@@ -221,21 +272,29 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
         r.check(fmj["entrypoints"]["main"] == [f"{cfg['basePackage']}.{cfg['classPrefix']}Mod"], "fabric entrypoint wrong")
         fb = files["fabric/build.gradle.kts"]["data"].decode()
         r.check(("modmenu" in fb) == cfg["modMenu"], "modmenu presence wrong in fabric build")
-        r.check(('"*.mixins.json"' in fb) == cfg["mixins"], "fabric metadata pattern for mixins wrong")
+        if cfg["modMenu"]:
+            if obfuscated:
+                # Loom (remap) is applied after the script ran, so the dependency waits for the plugin
+                r.check('pluginManager.withPlugin("net.fabricmc.fabric-loom-remap") {\n    dependencies {\n'
+                        f'        "modImplementation"("com.terraformersmc:modmenu:{cfg["modMenuVersion"]}")' in fb,
+                        f"modmenu must be a remapped modImplementation dependency on Minecraft {mc}")
+            else:
+                r.check(f'\ndependencies {{\n    implementation("com.terraformersmc:modmenu:{cfg["modMenuVersion"]}")\n}}' in fb,
+                        f"modmenu must be a plain implementation dependency on Minecraft {mc}")
+        r.check(f"// {modid}.classtweaker, from common or fabric\n    modifierType = ModifierType.CLASS_TWEAKER" in fb, "fabric classtweaker modifier missing")
+        r.check("import net.morthen.gradle.multiloader.api.ModifierType\n" in fb, "ModifierType import missing")
     if loaders["neoforge"]:
         toml = files["neoforge/src/main/resources/META-INF/neoforge.mods.toml"]["data"].decode()
         r.check(("[[mixins]]" in toml) == cfg["mixins"], "neoforge.mods.toml mixins presence wrong")
     if loaders["forge"]:
         fb = files["forge/build.gradle.kts"]["data"].decode()
-        r.check(("forgeMixins" in fb) == cfg["mixins"], "forgeMixins presence wrong in forge build")
+        r.check(("mixins = listOf(" in fb) == cfg["mixins"], "forge mixins presence wrong in forge build")
+        if cfg["mixins"]:
+            r.check('"$modId.mixins.json",\n        "$modId.forge.mixins.json"' in fb, "forge mixin configs wrong")
 
-    # every .json must still parse (regex edits could break them)
-    for p, e in files.items():
-        if p.endswith(".json") or p.endswith(".mcmeta"):
-            try:
-                json.loads(e["data"].decode())
-            except Exception as ex:
-                r.failures.append(f"invalid JSON after transformation: {p}: {ex}")
+    readme = files["README.md"]["data"].decode()
+    r.check(f"JDK {expected_java}" in readme, f"README does not name JDK {expected_java}")
+    r.check(f"Minecraft **{mc}**" in readme, "README does not name the Minecraft version")
 
     # 4. datagen caches
     for p, e in files.items():
@@ -275,8 +334,11 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
     elif lic == "LGPL-3.0-only":
         r.check(b"GNU LESSER GENERAL PUBLIC LICENSE" in files["LICENSE"]["data"], "LGPL text missing")
 
-    # 7. run defaults
-    r.check(("common/runs/client/options.txt" in files) == cfg["includeRunDefaults"], "run defaults presence wrong")
+    # 7. run directories: common/runs only with commonRunDirectory, otherwise every project's runs/ is ignored
+    if not cfg["commonRunDirectory"]:
+        r.check(not any(p.startswith("common/runs/") for p in files), "common/runs files without commonRunDirectory")
+    gitignore = files[".gitignore"]["data"].decode()
+    r.check(("\n/*/runs/\n" in gitignore) == (not cfg["commonRunDirectory"]), ".gitignore entry for <project>/runs wrong")
     if "common/runs/server/server.properties" in files:
         sp = files["common/runs/server/server.properties"]["data"].decode()
         r.check(re.search(r"^initial-enabled-packs=.*," + re.escape(modid) + r"$", sp, re.M) is not None, "server.properties initial-enabled-packs not renamed")
@@ -327,6 +389,13 @@ def _compare_fidelity(r, files, template_dir):
                 data = re.sub(rb"(?m)^management-server-secret=.*$", b"management-server-secret=", data)
             upstream[rel] = data
     ignore = {"README.md"}
+    root_build = upstream.get("build.gradle.kts", b"").decode(errors="replace")
+    if "multiloaderSettings" not in root_build:
+        # a branch still on the pre-0.2.0 plugin DSL: the generator always writes the current DSL,
+        # so only the build scripts and gradle.properties cannot match; everything else still has to
+        regenerated = {p for p in upstream if p == "build.gradle.kts" or p.endswith("/build.gradle.kts")} | {"gradle.properties"}
+        ignore |= regenerated
+        r.notes.append("branch still uses the pre-0.2.0 plugin DSL; build scripts and gradle.properties not compared")
 
     def norm(path, data):
         if "/.cache/" in path:
@@ -339,8 +408,16 @@ def _compare_fidelity(r, files, template_dir):
             return "\n".join(lines).rstrip("\n").encode()
         if path == "gradle.properties":
             # the generator rebuilds this file (keys appear only when the feature is on), so it owns the
-            # section comments; every actual setting still has to match the branch exactly
-            data = b"\n".join(l for l in data.splitlines() if not l.strip().startswith(b"#"))
+            # comments and blank lines; every actual setting still has to match the branch exactly.
+            # Exception: an empty modrinth_id / curseforge_id. The plugin uploads to a platform as soon as
+            # its key exists, so the generator comments an unset id out instead of writing it empty.
+            keep = []
+            for l in data.splitlines():
+                s = l.strip()
+                if not s or s.startswith(b"#") or s in (b"modrinth_id=", b"curseforge_id="):
+                    continue
+                keep.append(l)
+            data = b"\n".join(keep)
         return data.rstrip(b"\r\n")  # generated files always end with a newline, upstream is inconsistent
 
     missing = sorted(p for p in upstream if p not in files and p not in ignore)
@@ -376,7 +453,7 @@ def main():
         r = Result(name)
         try:
             status, zip_b64 = run_harness(chrome, {"defaults": spec.get("defaults", "ui"),
-                                                  "template": spec.get("template", "default"),
+                                                  "template": spec.get("template"),  # none: the Minecraft version decides
                                                   "config": spec.get("config", {})})
             if spec.get("expect") == "invalid":
                 fields = sorted({e["field"] for e in status.get("errors", [])})
@@ -393,6 +470,10 @@ def main():
                 entries = extract_zip(zip_bytes, dest)
                 files = check_flat(entries)
                 r.notes.append(f"{status['fileCount']} files, zip {status['zipBytes'] // 1024} KiB -> {os.path.relpath(dest, ROOT)}")
+                if "expectBranch" in spec:
+                    r.check(status.get("branch") == spec["expectBranch"], f"template branch {status.get('branch')}, expected {spec['expectBranch']}")
+                if "expectCovered" in spec:
+                    r.check(status.get("templateCovered") == spec["expectCovered"], f"template covered={status.get('templateCovered')}, expected {spec['expectCovered']}")
                 fidelity = bool(spec.get("checks", {}).get("fidelity"))
                 check_common(r, files, cfg, leak_check=not fidelity, template_assets=status.get("templateAssets", {}))
                 if fidelity:

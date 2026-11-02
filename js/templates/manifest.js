@@ -1,6 +1,6 @@
 // GENERATED FILE - do not edit by hand. Regenerate with scripts/bake.py
 window.TEMPLATE_MANIFEST = {
- "bakedAt": "2026-10-31T04:36:43+00:00",
+ "bakedAt": "2026-11-01T17:25:58+00:00",
  "defaultBranch": "main",
  "entries": {
   "26.1": {
@@ -33,9 +33,9 @@ window.TEMPLATE_MANIFEST = {
   },
   "default": {
    "branch": "main",
-   "commit": "2ef46f0b808dd397450b4db7d5b3fe91a8282450",
-   "commitDate": "2026-09-11T19:11:02+02:00",
-   "minecraftVersion": "26.2",
+   "commit": "3006b73b5cfcb5205cab7d9bcceeb8bb7dec7951",
+   "commitDate": "2026-11-01T18:11:31+01:00",
+   "minecraftVersion": "26.3",
    "snapshot": "default",
    "template": {
     "classPrefix": "ExampleMod",

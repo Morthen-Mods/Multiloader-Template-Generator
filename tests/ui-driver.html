@@ -7,8 +7,9 @@
 <body>
 <!--
   Loads ../index.html in an iframe and drives it like a user would:
-  wait for the version catalog, switch the Minecraft version, use "Custom…", and record what the
-  form ended up with. Run by tests/run_ui_check.py (needs --allow-file-access-from-files).
+  wait for the version catalog, switch the Minecraft version (including the obfuscated 1.21.x line
+  and legacy 1.20.1), use "Custom…", and record what the form ended up with.
+  Run by tests/run_ui_check.py (needs --allow-file-access-from-files).
 -->
 <div id="status"></div>
 <pre id="out"></pre>
@@ -78,13 +79,13 @@
     results.referenceNeoforgeHasBeta = reference.neoforgeHasBeta;
     results.referenceInitialFirst = reference.initialFirst;
 
-    results.modPublishPlugin = app().getConfig().modPublishPluginVersion;
     results.duplicateOptions = {};
     for (const sel of Array.from(doc.querySelectorAll('select[data-versions]'))) {
       const vals = Array.from(sel.options).map((o) => o.value);
       const dups = vals.filter((v, i) => vals.indexOf(v) !== i);
       if (dups.length) results.duplicateOptions[sel.id] = dups;
     }
+    results.pluginOptions = options('f-multiloaderPluginVersion');
     results.tools = {};
     for (const id of ['gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'foojayVersion']) {
       results.tools[id] = { value: val('f-' + id), count: options('f-' + id).length, first: options('f-' + id)[0] || null };
@@ -103,38 +104,43 @@
     results.footer = $('#snapshot-info').textContent;
     results.propsAfterSwitch = app().getFiles().length;
 
-    // 2. snapshots toggle exposes snapshot versions, choosing one maps NeoForm/NeoForge alpha builds
-    $('#opt-snapshots').checked = true; $('#opt-snapshots').dispatchEvent(new Event('change', { bubbles: true }));
-    await sleep(50);
-    const snapshotOptions = options('f-minecraftVersion');
-    const snap = snapshotOptions.find((v) => /-rc-|-pre-|-snapshot-/.test(v));
-    results.snapshotCount = snapshotOptions.length;
     const chips = () => {
       const o = {};
       for (const l of ['fabric', 'forge', 'neoforge']) { const el = $(`[data-key="loaders.${l}"]`); o[l] = { checked: el.checked, disabled: el.disabled }; }
       const dg = $('[data-key="datagen"]'); o.datagen = { checked: dg.checked, disabled: dg.disabled };
       return o;
     };
-    if (snap) {
-      setSelect('f-minecraftVersion', snap);
-      // the dependent fields are filled from the catalog, so wait for them to settle instead of guessing a delay
-      await waitFor(() => {
-        const nf = val('f-neoformVersion');
-        const note = $('[data-versions-note="neoformVersion"]');
-        return (nf && nf.startsWith(snap + '-')) || (note && !note.hidden);
-      }, 'loader fields for ' + snap);
-      results.snapshot = { mc: snap, neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion') };
-      await waitFor(() => app().getConfig().minecraftVersion === snap, 'config for snapshot');
-      results.snapshotChips = chips();
-      results.templateForSnapshot = app().getTemplate();
-      results.snapshotLoaders = app().getConfig().loaders;
-    }
+    const fileText = (path) => (app().getFiles().find((f) => f.path === path) || {}).text || '';
+    const templateNote = () => { const el = $('[data-template-note]'); return el && !el.hidden ? el.textContent : ''; };
+    results.templateNoteInitial = templateNote();
 
-    // 3. back to 26.2, then "Custom…" on NeoForm shows the text input and takes typed input
+    // 2. an obfuscated version without a template of its own: 1.21.1
+    setSelect('f-minecraftVersion', '1.21.1');
+    await waitFor(() => (val('f-neoformVersion') || '').startsWith('1.21.1-'), 'neoform for 1.21.1');
+    await waitFor(() => app().getTemplate() && templateNote() !== '', 'template note for 1.21.1');
+    await waitFor(() => /"modImplementation"\("com\.terraformersmc:modmenu:/.test(fileText('fabric/build.gradle.kts')), 'fabric build for 1.21.1');
+    results.v1_21_1 = { neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'),
+      java: String(app().getConfig().javaVersion), covered: app().isTemplateCovered(), note: templateNote(), template: app().getTemplate(),
+      fabricBuild: fileText('fabric/build.gradle.kts'), chips: chips() };
+
+    // 3. legacy 1.20.1: no NeoForge, no NeoForm, the datagen project stays available (ModDevGradle Legacy)
+    setSelect('f-minecraftVersion', '1.20.1');
+    await waitFor(() => (val('f-forgeVersion') || '').startsWith('47.') && app().getConfig().minecraftVersion === '1.20.1', 'forge for 1.20.1');
+    await waitFor(() => /minecraft_version=1\.20\.1/.test(fileText('gradle.properties')), 'gradle.properties for 1.20.1');
+    const neoformField = $('#f-neoformVersion').closest('.field');
+    const neoforgeField = $('#f-neoforgeVersion').closest('.field');
+    results.v1_20_1 = { chips: chips(), java: String(app().getConfig().javaVersion), loaders: app().getConfig().loaders, datagen: app().getConfig().datagen,
+      neoformInactive: neoformField.classList.contains('inactive'), neoforgeInactive: neoforgeField.classList.contains('inactive'),
+      props: fileText('gradle.properties').split('\n').filter((l) => /^(neoform|neoforge|forge|fabric_api)=/.test(l)),
+      errors: app().getErrors().map((e) => e.message), downloadEnabled: !$('#btn-download').disabled };
+
+    // 4. back to 26.2, then "Custom…" on NeoForm shows the text input and takes typed input
     setSelect('f-minecraftVersion', '26.2');
     await sleep(100);
+    await waitFor(() => app().getTemplate().minecraftVersion === '26.2', 'template for 26.2');
     results.chipsAfterReturn = chips();
     results.templateBack = app().getTemplate();
+    results.templateNoteBack = templateNote();
     setSelect('f-neoformVersion', '__custom__');
     await sleep(50);
     const input = $('[data-custom-for="neoformVersion"]');
@@ -146,15 +152,16 @@
     await waitFor(() => (app().getFiles().find((f) => f.path === 'gradle.properties') || {}).text?.includes('neoform=26.2-99'), 'regenerated gradle.properties');
     const props = app().getFiles().find((f) => f.path === 'gradle.properties');
     results.gradleProperties = props.text.split('\n').filter((l) => /^(minecraft_version|neoform|neoforge|forge|fabric_api|fabric_loader|java_version)=/.test(l));
+    results.rootBuild = fileText('build.gradle.kts');
     results.downloadEnabled = !$('#btn-download').disabled;
     results.validation = app().getErrors().map((e) => e.message).join(' ');
 
-    // 4. picking a list entry again leaves custom mode
+    // 5. picking a list entry again leaves custom mode
     setSelect('f-neoformVersion', options('f-neoformVersion')[0]);
     await sleep(50);
     results.leftCustomMode = input.hidden && $('#f-neoformVersion').value === options('f-neoformVersion')[0];
 
-    // 5. pin an older Gradle version, then the reset button returns to the newest one
+    // 6. pin an older Gradle version, then the reset button returns to the newest one
     const gradleOpts = options('f-gradleVersion');
     setSelect('f-gradleVersion', gradleOpts[2]);
     await sleep(50);

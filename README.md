@@ -12,11 +12,11 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 | --- | --- |
 | Mod | name, mod ID, author, version, description, license (MIT, Apache-2.0, MPL-2.0, LGPL-3.0, GPL-3.0, all-rights-reserved, none), Maven group, Java base package, class prefix, project name |
 | Loaders | any combination of Fabric, Forge and NeoForge |
-| Features | common datagen, mixins, test mod, gametests, common runs. Mod Menu comes with Fabric automatically whenever a build exists for the selected Minecraft version |
+| Features | common datagen, mixins, test mod, gametests, common run directory. Mod Menu comes with Fabric automatically whenever a build exists for the selected Minecraft version |
 | Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
 | Assets | mod icon and banner PNGs (placed in `common/src/main/resources`), in the Mod card |
-| Versions | Minecraft (26.1+, snapshots optional), NeoForm, and per loader its own versions, all as dropdowns filled from the official version lists and defaulting to the newest entry. The Java version is not a choice: it comes from Mojang's manifest for the selected Minecraft version |
-| Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin, ModDevGradle, Fabric Loom, ForgeGradle and the Foojay resolver (dropdowns fed from the respective release lists). mod-publish-plugin has no field and always uses its newest release |
+| Versions | Minecraft (every release from 1.20.1 on, which is what the [multiloader plugin](https://github.com/Morthen-Mods/multiloader-gradle-plugin) supports; it rejects snapshots, pre-releases and release candidates), NeoForm, and per loader its own versions, all as dropdowns filled from the official version lists and defaulting to the newest entry. The Java version is not a choice: the plugin derives it from the Minecraft version (17 below 1.20.5, 21 below 26, 25 from 26.1) |
+| Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin (0.2.0 and newer), ModDevGradle, Fabric Loom, ForgeGradle and the Foojay resolver (dropdowns fed from the respective release lists). mod-publish-plugin ships with the multiloader plugin and needs no version |
 
 Derived fields (mod ID, base package, class prefix, project name, issue URL) follow the fields they are based on
 until you edit them; the `↺` button switches a field back to automatic.
@@ -40,11 +40,21 @@ version:
 * Resource files are renamed from `example_mod.*` (`<mod id>.mixins.json`, `<mod id>.classtweaker`, `data/<mod id>/…`), and the
   `META-INF/services` file for `IPlatformHelper` gets the new fully qualified name.
 * `gradle.properties`, `settings.gradle.kts`, the root and per-module `build.gradle.kts`, the wrapper
-  properties, `README.md`, `CHANGELOG.md` and `LICENSE` are generated from the configuration. With the template's
-  own values they reproduce the upstream files byte for byte (this is covered by a test).
+  properties, `README.md`, `CHANGELOG.md` and `LICENSE` are generated from the configuration. The build scripts
+  use the DSL of multiloader plugin 0.2.0: the root project applies the plugin and holds every shared setting in
+  `multiloaderSettings { }`, each subproject only picks its `loader` (plus `modifierType` on Fabric and the
+  `mixins` list on Forge). With the template's own values they reproduce the upstream files byte for byte (this is
+  covered by a test).
 * Disabled loaders and features are removed consistently: subproject folders, `settings.gradle.kts` includes,
-  loader Gradle plugins in the root build script, `withTestMod()` / `withGametest()` / `withModPublish()` calls,
-  mixin configs and their references in `fabric.mod.json` / `neoforge.mods.toml` / `forgeMixins`.
+  loader Gradle plugins in the root build script, `withTestmod()` / `withGametest()` / `withModPublish { }` and
+  `commonRunDirectory`, the placeholder patterns and values of `applyMetadataReplacements`, mixin configs and
+  their references in `fabric.mod.json` / `neoforge.mods.toml` / the Forge `mixins` list.
+* The Minecraft version decides what the plugin needs: no `neoform` / `neoforge` on 1.20.1 (ModDevGradle Legacy
+  compiles against MCP and NeoForge is not supported there), and Mod Menu as a remapped `modImplementation`
+  dependency below 26, added once the plugin has applied `fabric-loom-remap`.
+* An empty `modrinth_id` / `curseforge_id` is written commented out, because the plugin uploads to a platform as
+  soon as its key exists. The client run passes the author as `--username` only when Minecraft accepts it as a
+  player name.
 * Minecraft's datagen `.cache` files are recomputed (SHA-1 of provider name and file contents) so the first
   `runData` does not see stale entries.
 * `gradlew` is marked executable inside the ZIP regardless of how it is stored upstream.
@@ -61,28 +71,34 @@ Their contents are fetched in the browser when the page opens (cached in `localS
 
 | Data | Source |
 | --- | --- |
-| Minecraft versions (26.1 and newer; snapshots optional) and the required Java version | Mojang's `version_manifest_v2.json` and the per-version manifests |
+| Minecraft releases from 1.20.1 on | Mojang's `version_manifest_v2.json` |
 | NeoForm, NeoForge | `maven.neoforged.net` version API |
 | Forge | `maven.minecraftforge.net` Maven metadata |
 | Fabric API | `maven.fabricmc.net` Maven metadata |
 | Fabric Loader | `meta.fabricmc.net` |
 | Mod Menu | Modrinth API, per Minecraft version. Not a field: the newest build is used when one exists |
 | Gradle | `services.gradle.org/versions/all` (final releases from 8.0) |
-| Multiloader plugin | `maven.morthen.net` version API |
+| Multiloader plugin | `maven.morthen.net` version API (releases from 0.2.0 on, the first with the DSL the generator writes) |
 | ModDevGradle | `maven.neoforged.net` version API |
 | Fabric Loom | `maven.fabricmc.net` Maven metadata (releases plus the `x.y-SNAPSHOT` lines) |
 | ForgeGradle | `maven.minecraftforge.net` plugin-marker metadata |
-| mod-publish-plugin | Gradle Plugin Portal; it sends no CORS headers, so this list only comes from the bundled catalog |
 | Foojay resolver | GitHub tags of `gradle/foojay-toolchains` |
 
 Every version field starts on the newest entry of its list (marked *latest*) and keeps following it until you pick
 something else; the `↺` button returns a field to *latest*. Picking a Minecraft version puts every dependent field
-back on the newest matching build; every dropdown also has a *Custom…* entry for typing a version by hand. Loaders without a build for the chosen version (for example
-Forge and NeoForge on a fresh snapshot) are switched off and greyed out, as is the datagen module when NeoForge
-is unavailable; the previous selection returns when a supported version is chosen again. Hand-typed versions the
-manifest does not know are never restricted. The mapping rules (for example NeoForge `26.1.2.<build>` for
-Minecraft `26.1.2`, `26.3.0.0-alpha.<n>+rc-1` for the `26.3-rc-1` snapshot, Fabric API `+26.3` for 26.3
-snapshots) live in `js/versions.js`.
+back on the newest matching build; every dropdown also has a *Custom…* entry for typing a version by hand. Loaders
+without a build for the chosen version (for example NeoForge on 1.20.1, or Forge on 1.21.2) are switched off and
+greyed out, as is the datagen module when NeoForge is unavailable (except on 1.20.1, where it runs on ModDevGradle
+Legacy); the previous selection returns when a supported version is chosen again. Fields the version does not use
+(NeoForm on 1.20.1) are greyed out. Hand-typed versions the manifest does not know are never restricted. The
+mapping rules live in `js/versions.js`:
+
+| Minecraft | NeoForm | NeoForge | Forge | Fabric API |
+| --- | --- | --- | --- | --- |
+| 1.20.1 | – (MCP) | – | `1.20.1-47.x` | `0.92.x+1.20.1` |
+| 1.21.1 | `1.21.1-20240808.144430` | `21.1.<build>` | `1.21.1-52.x` | `0.116.x+1.21.1` |
+| 1.21 | `1.21-<timestamp>` | `21.0.<build>` | `1.21-51.x` | `0.102.x+1.21` |
+| 26.1.2 | `26.1.2-<n>` | `26.1.2.<build>` | `26.1.2-64.x` | `0.155.x+26.1.2` |
 
 `js/versions-data.js` is a bundled copy of those lists. It fills the dropdowns before the live fetch finishes
 and is the fallback when a server cannot be reached. Regenerate it with:
@@ -91,8 +107,7 @@ and is the fallback when a server cannot be reached. Regenerate it with:
 scripts/bake-versions.py      # runs js/versions.js in headless Chrome and writes js/versions-data.js
 ```
 
-The bake runs Chrome with web security disabled so it can also read the Gradle Plugin Portal; the page itself
-never does that. The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, Fabric API) show the newest 15 entries,
+The loader dropdowns (NeoForm, NeoForge, Forge, Fabric Loader, Fabric API) show the newest 15 entries,
 the build tooling dropdowns the newest ten; older versions can still be typed in via *Custom…*. NeoForge beta
 builds are hidden as soon as a release build exists for the selected Minecraft version.
 
@@ -112,14 +127,23 @@ from the sources that actually worked back then. The 26.1 branch still writes `l
 `neoforge.mods.toml`, for instance, where 26.2 writes `iconFile` and `bannerFile`.
 
 Which branch serves a version is read from that branch's own `gradle.properties`, never from the branch name.
-A branch may therefore be named anything; only the `minecraft_version` it declares counts. Selecting a version
-resolves like this:
+A branch may therefore be named anything; only the `minecraft_version` it declares counts. A template serves the
+version it declares and that version's patch releases. Selecting a version resolves like this:
 
 ```
 26.2      -> the template declaring 26.2
 26.1.2    -> no exact match, falls back to the one declaring 26.1
-26.3-rc-1 -> pre-releases are reduced to 26.3, then fall back to the default branch
+1.21.1    -> no template of this line: the nearest template stands in (the newest one not newer than
+             1.21.1, otherwise the oldest one), and the form says so
 ```
+
+A stand-in template only provides the example sources and resources; the build files are still generated for
+the selected Minecraft version. Its sources usually need porting, so the form shows a note whenever no template
+targets the selected version. To support an older line properly, add a branch such as `1.21.1` or `1.20.1` to the
+template; the daily bake picks it up without any change here.
+
+The build scripts are always written in the current plugin DSL. A branch whose own scripts still use the pre-0.2.0
+DSL contributes its sources and resources unchanged; only its build scripts and `gradle.properties` are replaced.
 
 The footer names the branch and commit the current project comes from. `scripts/bake.py` bakes every branch
 whose name looks like a version, plus the default branch as the fallback. The default snapshot ships in a
@@ -154,8 +178,10 @@ expected shape.
 
 `tests/run_tests.py` drives `tests/harness.html` in headless Chrome for every configuration in
 `tests/configs/`, unpacks the resulting ZIP into `tests/out/<name>/` and checks it (no leaked upstream
-identifiers, loader/feature toggles, executable bit, valid JSON, cache hashes, a byte-for-byte comparison with an
-upstream checkout for the default configuration):
+identifiers, loader/feature toggles, the build scripts per Minecraft version, executable bit, valid JSON, cache
+hashes, a byte-for-byte comparison with an upstream checkout for the template defaults of each branch; for a
+branch still on the pre-0.2.0 plugin DSL the build scripts and `gradle.properties` are left out of that
+comparison):
 
 ```
 python3 tests/run_tests.py --template /path/to/Multiloader-Template
@@ -171,7 +197,7 @@ index.html            the app
 css/style.css
 js/app.js             UI: form binding, version dropdowns, URL state, download
 js/generator.js       pure transformation logic (also used by the tests)
-js/versions.js        live version catalog (Mojang, NeoForged, Forge, Fabric, Modrinth)
+js/versions.js        live version catalog (Mojang, NeoForged, Forge, Fabric, Modrinth, build tooling)
 js/templates/         generated template snapshots, one per branch, plus manifest and license texts
 js/versions-data.js   generated bundled version catalog
 vendor/jszip.min.js   JSZip 3.10.1 (MIT)

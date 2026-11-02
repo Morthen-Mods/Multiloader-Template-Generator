@@ -1,0 +1,10 @@
+{
+  "defaults": "ui",
+  "expect": "invalid",
+  "errorFields": [
+    "minecraftVersion"
+  ],
+  "config": {
+    "minecraftVersion": "1.19.4"
+  }
+}

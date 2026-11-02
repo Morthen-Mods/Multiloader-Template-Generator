@@ -1,6 +1,6 @@
 # Daily refresh of the bundled data:
 #   * re-bakes js/templates/ (one snapshot per template branch) from the upstream Multiloader-Template
-#   * re-bakes js/versions-data.js (version lists, incl. the Gradle Plugin Portal which browsers cannot read)
+#   * re-bakes js/versions-data.js (the version lists the page also fetches live)
 # and commits the result only if the whole verification passes:
 #   generator test suite (incl. byte-for-byte fidelity against upstream), UI interaction check,
 #   and a Gradle build of a generated project.

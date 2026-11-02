@@ -6,26 +6,24 @@
 <script src="../js/versions.js"></script>
 </head>
 <body>
-<!-- Opened headless by scripts/bake-versions.py: fetches the live catalog, resolves Java and
-     Mod Menu for every release, and prints the JSON into #out. -->
+<!-- Opened headless by scripts/bake-versions.py: fetches the live catalog, resolves Mod Menu
+     for every release, and prints the JSON into #out. -->
 <div id="status"></div>
 <pre id="out"></pre>
 <script>
 (async function () {
   const statusEl = document.getElementById('status');
   try {
-    const data = await VersionCatalog.fetchLive({ timeoutMs: 30000, all: true }); // all: also the sources a browser page cannot reach (bake runs without web security)
+    const data = await VersionCatalog.fetchLive({ timeoutMs: 30000 });
     const catalog = new VersionCatalog.Catalog(data);
     const problems = [];
-    for (const mc of catalog.minecraftVersions({ snapshots: false })) {
-      try { await catalog.javaFor(mc.id); } catch (e) { problems.push(`java ${mc.id}: ${e.message}`); }
+    for (const mc of catalog.minecraftVersions()) {
       try { await catalog.modMenuFor(mc.id); } catch (e) { problems.push(`modmenu ${mc.id}: ${e.message}`); }
     }
     const summary = {};
-    for (const mc of catalog.minecraftVersions({ snapshots: false })) {
+    for (const mc of catalog.minecraftVersions()) {
       const m = catalog.forMinecraft(mc.id);
       summary[mc.id] = {
-        java: data.javaByMinecraft[mc.id] || null,
         neoform: m.neoform[0] || null, neoforge: m.neoforge[0] || null, forge: m.forge[0] || null,
         fabricApi: m.fabricApi[0] || null, fabricLoader: catalog.latestFabricLoader() || null,
         modMenu: ((data.modMenu[mc.id] || [])[0] || {}).version || null,

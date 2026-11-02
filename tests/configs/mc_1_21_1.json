@@ -1,0 +1,23 @@
+{
+  "defaults": "ui",
+  "template": "1.21.1",
+  "expectBranch": "26.1",
+  "expectCovered": false,
+  "config": {
+    "modId": "retro_mod",
+    "modName": "Retro Mod",
+    "modAuthor": "Tester",
+    "group": "dev.tester",
+    "basePackage": "dev.tester.retro_mod",
+    "classPrefix": "RetroMod",
+    "rootProjectName": "RetroMod",
+    "minecraftVersion": "1.21.1",
+    "neoformVersion": "1.21.1-20240808.144430",
+    "neoforgeVersion": "21.1.265",
+    "forgeVersion": "52.1.0",
+    "fabricLoaderVersion": "0.20.1",
+    "fabricApiVersion": "0.116.7+1.21.1",
+    "modMenuVersion": "11.0.3",
+    "modrinthId": "AbCdEfGh"
+  }
+}

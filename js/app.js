@@ -10,20 +10,18 @@
   let TD = null;           // its snapshot
   let defaults = null;     // ModGen.uiDefaults(TD)
 
-  // "auto" fields follow their source until the user edits them: derived names, Java, and every version
+  // "auto" fields follow their source until the user edits them: derived names and every version
   // field (which then tracks the newest version the respective list provides)
   const VERSION_KEYS = ['minecraftVersion', 'neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'fabricLoaderVersion', 'modMenuVersion',
-    'gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'modPublishPluginVersion', 'foojayVersion'];
-  // javaVersion has no control of its own: it always follows Mojang's manifest, so it stays out
-  // of the link as well (it is derived from the Minecraft version anyway)
-  const AUTO_KEYS = ['modId', 'basePackage', 'classPrefix', 'rootProjectName', 'issuesUrl', 'javaVersion', ...VERSION_KEYS];
-  const HASH_EXCLUDE = new Set(['icon', 'banner']);
+    'gradleVersion', 'multiloaderPluginVersion', 'moddevVersion', 'loomVersion', 'forgeGradleVersion', 'foojayVersion'];
+  const AUTO_KEYS = ['modId', 'basePackage', 'classPrefix', 'rootProjectName', 'issuesUrl', ...VERSION_KEYS];
+  // javaVersion has no control of its own: the plugin derives it from the Minecraft version, so it stays out of the link
+  const HASH_EXCLUDE = new Set(['icon', 'banner', 'javaVersion']);
   const MC_DEPENDENT = ['neoformVersion', 'neoforgeVersion', 'forgeVersion', 'fabricApiVersion', 'modMenuVersion'];
   // form field -> catalog list for the build tooling dropdowns
   const TOOL_LIST_LIMIT = 10; // build tooling dropdowns show the newest N versions
   const API_LIST_LIMIT = 15;  // loader / API dropdowns show the newest N versions
-  // modPublishPluginVersion has no control of its own: it always tracks the newest release
-  const TOOL_FIELDS = { gradleVersion: 'gradle', multiloaderPluginVersion: 'multiloaderPlugin', moddevVersion: 'moddev', loomVersion: 'loom', forgeGradleVersion: 'forgeGradle', modPublishPluginVersion: 'modPublishPlugin', foojayVersion: 'foojay' };
+  const TOOL_FIELDS = { gradleVersion: 'gradle', multiloaderPluginVersion: 'multiloaderPlugin', moddevVersion: 'moddev', loomVersion: 'loom', forgeGradleVersion: 'forgeGradle', foojayVersion: 'foojay' };
   const CUSTOM = '__custom__';
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -38,26 +36,18 @@
   let catalog = null;
   let catalogOrigin = 'none';
   let catalogLoading = true;
-  let includeSnapshots = false;
   const customMode = new Set();   // version fields currently in "Custom…" text mode
-  const knownJava = {};           // minecraft id -> required Java major
   const modMenuCache = {};        // minecraft id -> [{ version, type }]
 
   // ---------------------------------------------------------------------------
   // template selection
   // ---------------------------------------------------------------------------
   /**
-   * Which template serves this Minecraft version: exact match first, then ever shorter
-   * version prefixes, finally the default branch. 26.1.2 falls back to 26.1, and a
-   * snapshot such as 26.3-rc-1 is reduced to 26.3 before the search.
+   * Which template serves this Minecraft version (see ModGen.resolveTemplate): the branch declaring
+   * it or its minor line (26.1.2 -> 26.1), otherwise the nearest template, marked as not covering it.
    */
   function resolveEntry(mc) {
-    const parts = String(mc || '').split('-')[0].split('.').filter(Boolean);
-    for (let n = parts.length; n >= 1; n--) {
-      const hit = MANIFEST.entries[parts.slice(0, n).join('.')];
-      if (hit) return hit;
-    }
-    return MANIFEST.entries.default;
+    return ModGen.resolveTemplate(MANIFEST, mc);
   }
 
   const loadingSnapshots = new Map();
@@ -93,11 +83,11 @@
 
   /** Make sure the template matching `mc` is loaded; re-renders once a fetched one arrives. */
   function ensureTemplate(mc) {
-    const next = resolveEntry(mc);
+    const next = resolveEntry(mc).entry;
     if (next === entry) return;
     if (window.TEMPLATE_SNAPSHOTS[next.snapshot]) { useEntry(next); return; }
     loadSnapshot(next.snapshot)
-      .then(() => { if (resolveEntry(state.minecraftVersion) === next) { useEntry(next); update({ immediate: true }); } })
+      .then(() => { if (resolveEntry(state.minecraftVersion).entry === next) { useEntry(next); update({ immediate: true }); } })
       .catch((e) => { console.error(e); toast('Could not load the template for Minecraft ' + mc + '.'); });
   }
 
@@ -119,7 +109,7 @@
     if (auto.rootProjectName) state.rootProjectName = ModGen.suggestRootProjectName(state.modName, state.modId);
     if (auto.issuesUrl) state.issuesUrl = ModGen.suggestIssuesUrl(state.sourcesUrl);
     if (catalog && !catalogLoading) {
-      const releases = catalog.minecraftVersions({ snapshots: false });
+      const releases = catalog.minecraftVersions();
       if (auto.minecraftVersion && releases[0]) state.minecraftVersion = releases[0].id;
       const mc = state.minecraftVersion;
       const m = catalog.forMinecraft(mc);
@@ -134,7 +124,6 @@
         if (auto[field] && tools[list] && tools[list][0]) state[field] = tools[list][0];
       }
     }
-    if (knownJava[state.minecraftVersion]) state.javaVersion = knownJava[state.minecraftVersion];
   }
 
   /**
@@ -144,7 +133,9 @@
   function loaderSupport(mc) {
     if (!catalog || catalogLoading || !catalog.hasMinecraft(mc)) return null;
     const m = catalog.forMinecraft(mc);
-    return { fabric: m.fabricApi.length > 0, forge: m.forge.length > 0, neoforge: m.neoforge.length > 0, neoform: m.neoform.length > 0 };
+    const neoforge = m.neoforge.length > 0 && !ModGen.isLegacy(mc);
+    // the datagen project runs on NeoForge, except on 1.20.1 where it uses ModDevGradle Legacy (MCP)
+    return { fabric: m.fabricApi.length > 0, forge: m.forge.length > 0, neoforge, datagen: neoforge || ModGen.isLegacy(mc) };
   }
 
   /** state holds what the user wants; the effective config drops loaders the chosen Minecraft version cannot use. */
@@ -155,7 +146,7 @@
     const sup = loaderSupport(cfg.minecraftVersion);
     if (sup) {
       for (const l of ['fabric', 'forge', 'neoforge']) if (!sup[l]) cfg.loaders[l] = false;
-      if (!sup.neoforge) cfg.datagen = false; // the datagen module runs on NeoForge
+      if (!sup.datagen) cfg.datagen = false;
     }
     return cfg;
   }
@@ -197,6 +188,9 @@
     const diff = decodeHash();
     if (!diff) return;
     delete diff._manual;
+    // links from before the multiloader plugin 0.2.0 rework
+    if ('includeRunDefaults' in diff && !('commonRunDirectory' in diff)) diff.commonRunDirectory = diff.includeRunDefaults;
+    for (const k of ['includeRunDefaults', 'modPublishPluginVersion', 'javaVersion']) delete diff[k];
     state = ModGen.normalizeConfig(diff, defaults);
     state.icon = null; state.banner = null;
     for (const k of AUTO_KEYS) auto[k] = !(k in diff); // a derived field in the link means the user overrode it
@@ -222,7 +216,6 @@
       catalog = new VersionCatalog.Catalog(VersionCatalog.normalizeData(window.VERSION_DATA, 'bundled'));
       catalogOrigin = 'bundled';
       catalogLoading = false;
-      Object.assign(knownJava, catalog.data.javaByMinecraft);
       Object.assign(modMenuCache, catalog.data.modMenu);
       update({ immediate: true });
     }
@@ -232,9 +225,7 @@
       const r = await VersionCatalog.load({ force });
       catalog = r.catalog;
       catalogOrigin = r.origin;
-      Object.assign(knownJava, catalog.data.javaByMinecraft);
       Object.assign(modMenuCache, catalog.data.modMenu);
-      if (catalog.isSnapshot(state.minecraftVersion)) { includeSnapshots = true; $('#opt-snapshots').checked = true; }
     } catch (e) {
       console.error('version catalog failed', e);
       catalog = new VersionCatalog.Catalog(null);
@@ -243,17 +234,8 @@
     catalogLoading = false;
     catalogRefreshing = false;
     renderVersionsStatus();
-    ensureJava(state.minecraftVersion);
     ensureModMenu(state.minecraftVersion);
     update({ immediate: true });
-  }
-
-  async function ensureJava(mc) {
-    if (!catalog || !mc || knownJava[mc]) return;
-    try {
-      const j = await catalog.javaFor(mc);
-      if (j) { knownJava[mc] = j; update(); }
-    } catch (e) { console.warn('java lookup failed for', mc, e); }
   }
 
   async function ensureModMenu(mc) {
@@ -275,7 +257,6 @@
     for (const k of MC_DEPENDENT) { auto[k] = true; customMode.delete(k); }
     // clear first, so a version belonging to the previous Minecraft release is never carried over
     state.modMenuVersion = ((modMenuCache[mc] || [])[0] || {}).version || '';
-    ensureJava(mc);
     ensureModMenu(mc);
   }
 
@@ -296,8 +277,7 @@
     if (key in TOOL_FIELDS) return plain(capped((tools && tools[TOOL_FIELDS[key]]) || [], key, TOOL_LIST_LIMIT));
     switch (key) {
       case 'minecraftVersion':
-        // no type suffix: every non-release id already says what it is (-snapshot-N, -pre-N, -rc-N)
-        return catalog.minecraftVersions({ snapshots: includeSnapshots }).map((v) => ({ value: v.id, label: v.id }));
+        return catalog.minecraftVersions().map((v) => ({ value: v.id, label: v.id }));
       case 'neoformVersion': return plain(capped(mapped.neoform, key, API_LIST_LIMIT));
       case 'neoforgeVersion': return plain(capped(mapped.neoforge, key, API_LIST_LIMIT));
       case 'forgeVersion': return plain(capped(mapped.forge, key, API_LIST_LIMIT));
@@ -337,11 +317,17 @@
         input.hidden = !custom;
         if (input !== active) input.value = value;
       }
-      const note = sel.closest('.field') && sel.closest('.field').querySelector(`[data-versions-note="${key}"]`);
+      const field = sel.closest('.field');
+      const note = field && field.querySelector(`[data-versions-note="${key}"]`);
       if (note) {
-        const none = catalog && !catalogLoading && options.length === 0;
-        note.hidden = !none;
-        note.textContent = none
+        // a field the configuration does not use needs no "enter one manually" hint
+        const unused = !!field.dataset.showIf && !evalShowIf(field.dataset.showIf);
+        const none = catalog && !catalogLoading && options.length === 0 && !unused;
+        const legacyNeoform = key === 'neoformVersion' && ModGen.isSupportedMinecraft(state.minecraftVersion) && ModGen.isLegacy(state.minecraftVersion);
+        note.hidden = !none && !legacyNeoform;
+        note.textContent = legacyNeoform
+          ? `Not used on Minecraft ${state.minecraftVersion}: the common project compiles against MCP there.`
+          : none
           ? (key in TOOL_FIELDS
             ? `No ${VERSION_LABELS[key] || key} versions could be loaded. Enter one manually.`
             : `No ${VERSION_LABELS[key] || key} build is listed for Minecraft ${state.minecraftVersion}. Enter one manually or pick another Minecraft version.`)
@@ -367,7 +353,7 @@
     const when = catalog && catalog.fetchedAt ? new Date(catalog.fetchedAt) : null;
     const fmtTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const degraded = Object.entries(catalog.sources)
-      .filter(([, s]) => s.origin !== 'live' && s.origin !== 'cache' && !s.skipped)
+      .filter(([, s]) => s.origin !== 'live' && s.origin !== 'cache')
       .map(([k, s]) => `${VersionCatalog.SOURCES[k].label} ${s.origin === 'bundled' ? '(bundled list)' : '(unavailable)'}`);
     let cls = 'versions-status', msg;
     if (catalogOrigin === 'live') { cls += ' live'; msg = `Version lists fetched at ${fmtTime(when)}`; }
@@ -388,9 +374,18 @@
     return key.startsWith('loaders.') ? effective.loaders[key.slice(8)] : effective[key];
   }
 
+  // conditions derived from the configuration rather than stored in it
+  const DERIVED = {
+    needsNeoform: () => ModGen.needsNeoform(effective || currentConfig()),
+    needsNeoforge: () => ModGen.needsNeoforge(effective || currentConfig()),
+  };
+  function condition(key) {
+    return key in DERIVED ? DERIVED[key]() : !!getEffective(key);
+  }
+
   function evalShowIf(expr) {
-    if (expr.includes('&')) return expr.split('&').every((k) => !!getEffective(k.trim()));
-    return expr.split('|').some((k) => !!getEffective(k.trim()));
+    if (expr.includes('&')) return expr.split('&').every((k) => condition(k.trim()));
+    return expr.split('|').some((k) => condition(k.trim()));
   }
 
   function renderForm(errors, cfg) {
@@ -403,7 +398,7 @@
       const value = getKey(key);
       if (el.type === 'checkbox') {
         const loader = key.startsWith('loaders.') ? key.slice(8) : null;
-        const blocked = !!sup && ((loader && !sup[loader]) || (key === 'datagen' && !sup.neoforge));
+        const blocked = !!sup && ((loader && !sup[loader]) || (key === 'datagen' && !sup.datagen));
         el.checked = blocked ? false : !!value;
         el.disabled = blocked;
         const box = el.closest('.toggle, .loader-chip');
@@ -422,9 +417,19 @@
     }
     for (const el of $$('[data-unsupported-note]')) {
       const key = el.dataset.unsupportedNote;
-      const blocked = !!sup && (key === 'datagen' ? !sup.neoforge : !sup[key]);
+      const blocked = !!sup && !sup[key];
       el.hidden = !blocked;
       el.textContent = blocked ? (key === 'datagen' ? `Needs a NeoForge build for Minecraft ${cfg.minecraftVersion}.` : `no build for ${cfg.minecraftVersion}`) : '';
+    }
+    for (const el of $$('[data-template-note]')) {
+      // the build setup always targets the selected version; only the example sources come from elsewhere
+      const resolved = resolveEntry(cfg.minecraftVersion);
+      // shown once the stand-in template is loaded, so the note always names the template in use
+      const show = !resolved.covered && resolved.entry === entry && ModGen.isSupportedMinecraft(cfg.minecraftVersion);
+      el.hidden = !show;
+      el.textContent = show
+        ? `No template for Minecraft ${cfg.minecraftVersion} yet: the build files target ${cfg.minecraftVersion}, but the example sources come from the ${entry.minecraftVersion} template and will likely need porting.`
+        : '';
     }
     for (const el of $$('[data-error-for]')) {
       const errs = errors.filter((e) => e.field === el.dataset.errorFor);
@@ -561,7 +566,6 @@
       input.addEventListener('input', () => { customMode.add(key); auto[key] = false; setKey(key, input.value.trim()); update(); });
       if (key === 'minecraftVersion') input.addEventListener('change', () => { applyMinecraftDefaults(input.value.trim()); update(); });
     }
-    $('#opt-snapshots').addEventListener('change', (e) => { includeSnapshots = e.target.checked; update({ immediate: true }); });
     $('#btn-refresh-versions').addEventListener('click', () => loadCatalog(true));
 
     for (const btn of $$('[data-reset-auto]')) {
@@ -708,7 +712,7 @@
     if (diff && diff.minecraftVersion) return diff.minecraftVersion;
     try {
       const bundled = new VersionCatalog.Catalog(VersionCatalog.normalizeData(window.VERSION_DATA, 'bundled'));
-      const newest = bundled.minecraftVersions({ snapshots: false })[0];
+      const newest = bundled.minecraftVersions()[0];
       if (newest) return newest.id;
     } catch (e) { /* fall through to the default branch */ }
     return null;
@@ -716,7 +720,7 @@
 
   async function init() {
     populateLicenses();
-    const first = resolveEntry(startupMinecraftVersion());
+    const first = resolveEntry(startupMinecraftVersion()).entry;
     try {
       await loadSnapshot(first.snapshot);
     } catch (e) {
@@ -736,7 +740,7 @@
   }
 
   // read-only hook for tests/ui-driver.html
-  window.ModGenApp = { getFiles: () => files, getConfig: () => currentConfig(), getErrors: () => lastErrors, getTemplate: () => entry };
+  window.ModGenApp = { getFiles: () => files, getConfig: () => currentConfig(), getErrors: () => lastErrors, getTemplate: () => entry, isTemplateCovered: () => resolveEntry(state.minecraftVersion).covered };
 
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
 })();

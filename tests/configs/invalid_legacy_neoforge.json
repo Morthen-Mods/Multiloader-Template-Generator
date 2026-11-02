@@ -1,0 +1,17 @@
+{
+  "defaults": "ui",
+  "expect": "invalid",
+  "errorFields": [
+    "loaders"
+  ],
+  "config": {
+    "minecraftVersion": "1.20.1",
+    "neoformVersion": "",
+    "neoforgeVersion": "",
+    "loaders": {
+      "fabric": true,
+      "forge": true,
+      "neoforge": true
+    }
+  }
+}

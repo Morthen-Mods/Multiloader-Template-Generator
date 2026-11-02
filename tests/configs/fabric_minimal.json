@@ -20,6 +20,6 @@
     "mixins": false,
     "modPublish": false,
     "modMenu": false,
-    "includeRunDefaults": false
+    "commonRunDirectory": false
   }
 }
