@@ -1,0 +1,12 @@
+{
+  "defaults": "ui",
+  "expect": "invalid",
+  "errorFields": [
+    "modSide",
+    "releaseType"
+  ],
+  "config": {
+    "modSide": "BOTH",
+    "releaseType": "RELEASE"
+  }
+}

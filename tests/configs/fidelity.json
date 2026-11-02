@@ -1,8 +1,0 @@
-{
-  "defaults": "template",
-  "config": {},
-  "checks": {
-    "fidelity": true
-  },
-  "template": "default"
-}

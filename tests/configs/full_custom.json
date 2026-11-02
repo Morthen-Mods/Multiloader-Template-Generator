@@ -16,6 +16,8 @@
     "modrinthId": "abcd1234",
     "curseforgeId": "123456",
     "icon": "__test_png__",
-    "banner": "__test_png__"
+    "banner": "__test_png__",
+    "modSide": "CLIENT_ONLY",
+    "releaseType": "BETA"
   }
 }

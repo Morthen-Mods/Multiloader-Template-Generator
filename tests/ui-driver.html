@@ -98,8 +98,10 @@
     results.after26_1_2 = { mc: val('f-minecraftVersion'), java: String(app().getConfig().javaVersion), neoform: val('f-neoformVersion'), neoforge: val('f-neoforgeVersion'), forge: val('f-forgeVersion'), fabricApi: val('f-fabricApiVersion'), fabricLoader: val('f-fabricLoaderVersion'), modMenu: app().getConfig().modMenuVersion, neoforgeOptions: options('f-neoforgeVersion').length, forgeOptions: options('f-forgeVersion').length };
     await waitFor(() => app().getConfig().minecraftVersion === '26.1.2', 'config update');
     results.configAfterSwitch = app().getConfig().minecraftVersion;
-    // 26.1.2 has no template branch of its own and must fall back to the 26.1 one
-    await waitFor(() => app().getTemplate().minecraftVersion !== results.templateInitial.minecraftVersion, 'template switch for 26.1.2');
+    // 26.1.2 switches to the template the manifest assigns to it: its own branch, or else the 26.1 line
+    const expected26_1_2 = frame.contentWindow.ModGen.resolveTemplate(frame.contentWindow.TEMPLATE_MANIFEST, '26.1.2').entry;
+    results.expectedTemplateFor26_1_2 = { branch: expected26_1_2.branch, minecraftVersion: expected26_1_2.minecraftVersion };
+    await waitFor(() => app().getTemplate().branch === expected26_1_2.branch, 'template switch for 26.1.2');
     results.templateFor26_1_2 = app().getTemplate();
     results.footer = $('#snapshot-info').textContent;
     results.propsAfterSwitch = app().getFiles().length;
@@ -169,6 +171,21 @@
     $('[data-reset-auto="gradleVersion"]').click();
     await sleep(50);
     results.resetToLatest = pinned && val('f-gradleVersion') === gradleOpts[0] && $('[data-auto-label="gradleVersion"]').textContent === 'latest';
+
+    // 7. environment and release type reach the metadata and withModPublish; the release type needs publishing
+    setSelect('f-modSide', 'CLIENT_ONLY');
+    setSelect('f-releaseType', 'BETA');
+    await waitFor(() => /side = ModSide\.CLIENT_ONLY/.test(fileText('build.gradle.kts')), 'withModPublish side');
+    results.side = {
+      options: options('f-modSide'), releaseOptions: options('f-releaseType'),
+      fabricEnvironment: (JSON.parse(fileText('fabric/src/main/resources/fabric.mod.json') || '{}')).environment,
+      forgeClientSideOnly: /^clientSideOnly = true$/m.test(fileText('forge/src/main/resources/META-INF/mods.toml')),
+      rootBuild: fileText('build.gradle.kts'),
+    };
+    $('[data-key="modPublish"]').click();
+    await waitFor(() => !/withModPublish/.test(fileText('build.gradle.kts')), 'publishing off');
+    results.side.releaseTypeDisabled = $('#f-releaseType').disabled;
+    results.side.fabricEnvironmentWithoutPublish = (JSON.parse(fileText('fabric/src/main/resources/fabric.mod.json') || '{}')).environment;
 
     statusEl.textContent = JSON.stringify({ status: 'ok' });
   } catch (e) {

@@ -10,10 +10,10 @@ Everything runs in the browser. There is no backend, nothing is uploaded, and th
 
 | Group | Options |
 | --- | --- |
-| Mod | name, mod ID, author, version, description, license (MIT, Apache-2.0, MPL-2.0, LGPL-3.0, GPL-3.0, all-rights-reserved, none), Maven group, Java base package, class prefix, project name |
+| Mod | name, mod ID, author, version, description, license (MIT, Apache-2.0, MPL-2.0, LGPL-3.0, GPL-3.0, all-rights-reserved, none), environment (client and server, client only, server only, client or server), Maven group, Java base package, class prefix, project name |
 | Loaders | any combination of Fabric, Forge and NeoForge |
 | Features | common datagen, mixins, test mod, gametests, common run directory. Mod Menu comes with Fabric automatically whenever a build exists for the selected Minecraft version |
-| Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs, source and issue URLs |
+| Publishing | mod-publish-plugin setup with Modrinth / CurseForge project IDs and release type (release, beta, alpha), source and issue URLs |
 | Assets | mod icon and banner PNGs (placed in `common/src/main/resources`), in the Mod card |
 | Versions | Minecraft (every release from 1.20.1 on, which is what the [multiloader plugin](https://github.com/Morthen-Mods/multiloader-gradle-plugin) supports; it rejects snapshots, pre-releases and release candidates), NeoForm, and per loader its own versions, all as dropdowns filled from the official version lists and defaulting to the newest entry. The Java version is not a choice: the plugin derives it from the Minecraft version (17 below 1.20.5, 21 below 26, 25 from 26.1) |
 | Build tooling | Gradle wrapper version, JVM args, daemon flag, and the versions of the multiloader plugin (0.2.0 and newer), ModDevGradle, Fabric Loom, ForgeGradle and the Foojay resolver (dropdowns fed from the respective release lists). mod-publish-plugin ships with the multiloader plugin and needs no version |
@@ -51,7 +51,20 @@ version:
   their references in `fabric.mod.json` / `neoforge.mods.toml` / the Forge `mixins` list.
 * The Minecraft version decides what the plugin needs: no `neoform` / `neoforge` on 1.20.1 (ModDevGradle Legacy
   compiles against MCP and NeoForge is not supported there), and Mod Menu as a remapped `modImplementation`
-  dependency below 26, added once the plugin has applied `fabric-loom-remap`.
+  dependency below 26, added in an `afterEvaluate` block because the plugin applies `fabric-loom-remap` in its own.
+* The environment says where the mod has to be installed. It is mirrored into the loader metadata and, when
+  publishing, into `withModPublish { side = ModSide.… }` (Modrinth environment, CurseForge client/server tags):
+
+  | Environment | `side` | `fabric.mod.json` | Forge `mods.toml` |
+  | --- | --- | --- | --- |
+  | Client and server | `CLIENT_AND_SERVER` (plugin default, not written) | `"environment": "*"` | – |
+  | Client only | `CLIENT_ONLY` | `"environment": "client"` | `clientSideOnly = true` |
+  | Server only (also in singleplayer) | `SERVER_ONLY` | `"environment": "*"` | `displayTest = "IGNORE_SERVER_VERSION"` |
+  | Client or server | `CLIENT_OR_SERVER` | `"environment": "*"` | `displayTest = "IGNORE_ALL_VERSION"` |
+
+  Fabric's `"server"` means a dedicated server only, so a server-side mod that also works in singleplayer stays
+  `"*"`. NeoForge has neither key; a client-only NeoForge mod restricts itself in code (`@Mod(dist = Dist.CLIENT)`).
+  A release type other than release is written as `type = BETA` / `type = ALPHA` in `withModPublish`.
 * An empty `modrinth_id` / `curseforge_id` is written commented out, because the plugin uploads to a platform as
   soon as its key exists. The client run passes the author as `--username` only when Minecraft accepts it as a
   player name.
@@ -82,7 +95,7 @@ Their contents are fetched in the browser when the page opens (cached in `localS
 | ModDevGradle | `maven.neoforged.net` version API |
 | Fabric Loom | `maven.fabricmc.net` Maven metadata (releases plus the `x.y-SNAPSHOT` lines) |
 | ForgeGradle | `maven.minecraftforge.net` plugin-marker metadata |
-| Foojay resolver | GitHub tags of `gradle/foojay-toolchains` |
+| Foojay resolver | GitHub tags of `gradle/foojay-toolchains`, read through the jsDelivr API (the GitHub API allows only 60 anonymous requests per hour and IP) |
 
 Every version field starts on the newest entry of its list (marked *latest*) and keeps following it until you pick
 something else; the `↺` button returns a field to *latest*. Picking a Minecraft version puts every dependent field
@@ -113,12 +126,21 @@ builds are hidden as soon as a release build exists for the selected Minecraft v
 
 ## Daily refresh (GitHub Actions)
 
-`.github/workflows/refresh.yml` runs daily at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch.
-It re-bakes the template snapshot from the upstream repository and the version catalog, then runs the generator
-suite (including a byte-for-byte comparison per branch), the UI check and a Gradle build of a generated project. Only if all of
-that passes does it commit the regenerated `js/templates/` and `js/versions-data.js` to `main`, which
-GitHub Pages then publishes. A failed run leaves the site untouched and shows up as a red workflow run, which is
-the signal that the upstream template changed in a way the generator does not understand yet.
+`.github/workflows/refresh.yml` runs daily at 00:00 UTC (01:00 CET / 02:00 CEST) and on manual dispatch, in
+three jobs:
+
+1. **verify** re-bakes the template snapshots of every upstream branch and the version catalog, then runs the
+   generator suite (including the byte-for-byte comparison with every branch) and the UI check.
+2. **build** runs `./gradlew build` (plus the testmod and gametest compile tasks) on the generated `build-<snapshot>`
+   project of every template snapshot whose files changed, one job per snapshot. The generated projects depend
+   only on the snapshots, not on the version catalog, so a day that only brings new loader versions builds
+   nothing; a manual run builds every snapshot. Each job has JDK 17, 21 and 25, so the toolchain the multiloader
+   plugin picks for the Minecraft version is already installed.
+3. **publish** commits the regenerated `js/templates/` and `js/versions-data.js` to `main`, which GitHub Pages
+   then publishes, but only if something besides the bake timestamps changed and every build passed.
+
+A failed run leaves the site untouched and shows up as a red workflow run, which is the signal that the upstream
+template changed in a way the generator does not understand yet.
 
 ## One template per Minecraft version
 
@@ -132,7 +154,7 @@ version it declares and that version's patch releases. Selecting a version resol
 
 ```
 26.2      -> the template declaring 26.2
-26.1.2    -> no exact match, falls back to the one declaring 26.1
+26.2.1    -> a patch release without a branch of its own falls back to the one declaring 26.2
 1.21.1    -> no template of this line: the nearest template stands in (the newest one not newer than
              1.21.1, otherwise the oldest one), and the form says so
 ```
@@ -144,6 +166,10 @@ template; the daily bake picks it up without any change here.
 
 The build scripts are always written in the current plugin DSL. A branch whose own scripts still use the pre-0.2.0
 DSL contributes its sources and resources unchanged; only its build scripts and `gradle.properties` are replaced.
+
+The loaders a branch builds are the ones its `settings.gradle.kts` includes. The 1.21.2 branch, for example, keeps
+a `forge/` folder but does not include it, because Forge skipped 1.21.2; its template defaults therefore leave
+Forge out (in the form, Forge is unavailable on 1.21.2 anyway, as the version catalog has no build for it).
 
 The footer names the branch and commit the current project comes from. `scripts/bake.py` bakes every branch
 whose name looks like a version, plus the default branch as the fallback. The default snapshot ships in a
@@ -177,18 +203,27 @@ expected shape.
 ## Tests
 
 `tests/run_tests.py` drives `tests/harness.html` in headless Chrome for every configuration in
-`tests/configs/`, unpacks the resulting ZIP into `tests/out/<name>/` and checks it (no leaked upstream
-identifiers, loader/feature toggles, the build scripts per Minecraft version, executable bit, valid JSON, cache
-hashes, a byte-for-byte comparison with an upstream checkout for the template defaults of each branch; for a
-branch still on the pre-0.2.0 plugin DSL the build scripts and `gradle.properties` are left out of that
-comparison):
+`tests/configs/`, plus two checks per entry of `js/templates/manifest.js`, so a new template branch is covered
+without a new configuration:
+
+* `fidelity-<branch>`: the template defaults of that branch must reproduce it byte for byte (compared with an
+  upstream checkout). For a branch still on the pre-0.2.0 plugin DSL the build scripts and `gradle.properties`
+  are left out of that comparison; for a branch that keeps a project folder it does not include (`forge/` on
+  1.21.2), that folder, the root build script and `gradle.properties` are.
+* `build-<snapshot>`: the `full_custom` configuration on each template snapshot; these are the projects the
+  workflow builds with Gradle.
+
+Each run unpacks the resulting ZIP into `tests/out/<name>/` and checks it (no leaked upstream identifiers,
+loader/feature toggles, the build scripts per Minecraft version, executable bit, valid JSON, cache hashes):
 
 ```
 python3 tests/run_tests.py --template /path/to/Multiloader-Template
+python3 tests/run_tests.py --only build-1.21.11                       # a single configuration or check
 ```
 
-Requires Python 3 and Chrome/Chromium (`--chrome PATH` if it is not on `PATH`). The extracted projects under
-`tests/out/` can be built with their own `./gradlew build` as a final check.
+Requires Python 3.12+ and Chrome/Chromium (`--chrome PATH` if it is not on `PATH`). The extracted projects under
+`tests/out/` can be built with their own `./gradlew build` as a final check; `--build-matrix FILE` lists the
+`build-<snapshot>` projects with their Minecraft and Java version and Gradle tasks, as the workflow uses them.
 
 ## Project layout
 

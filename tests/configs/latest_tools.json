@@ -23,6 +23,6 @@
     "foojayVersion": "1.0.0"
   },
   "template": "26.3",
-  "expectBranch": "main",
+  "expectBranch": "26.3",
   "expectCovered": true
 }

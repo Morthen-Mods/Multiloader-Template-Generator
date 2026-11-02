@@ -36,7 +36,9 @@
     moddev:            { group: 'tools', label: 'ModDevGradle',       url: 'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/moddev-gradle' },
     loom:              { group: 'tools', label: 'Fabric Loom',        url: 'https://maven.fabricmc.net/net/fabricmc/fabric-loom/maven-metadata.xml' },
     forgeGradle:       { group: 'tools', label: 'ForgeGradle',        url: 'https://maven.minecraftforge.net/net/minecraftforge/gradle/net.minecraftforge.gradle.gradle.plugin/maven-metadata.xml' },
-    foojay:            { group: 'tools', label: 'Foojay resolver',    url: 'https://api.github.com/repos/gradle/foojay-toolchains/tags?per_page=50' },
+    // the GitHub tags of gradle/foojay-toolchains, read through jsDelivr: api.github.com allows 60 anonymous
+    // requests per hour and IP, which shared networks (and the GitHub Actions runners of the daily bake) run out of
+    foojay:            { group: 'tools', label: 'Foojay resolver',    url: 'https://data.jsdelivr.com/v1/packages/gh/gradle/foojay-toolchains' },
   };
   const LIST_KEYS = Object.keys(SOURCES);
   const TOOL_KEYS = LIST_KEYS.filter((k) => SOURCES[k].group === 'tools');
@@ -125,7 +127,7 @@
     // Loom: final releases plus the rolling "<major>.<minor>-SNAPSHOT" lines the template uses
     loom: (text) => newestFirst(parseMavenXml(text).filter((v) => /-SNAPSHOT$/.test(v) || /^\d+\.\d+\.\d+$/.test(v))).slice(0, 20),
     forgeGradle: (text) => newestFirst(parseMavenXml(text)).slice(0, 20),
-    foojay: (json) => newestFirst((json || []).map((t) => t.name || '')
+    foojay: (json) => newestFirst(((json && json.versions) || []).map((t) => t.version || '')
       .filter((n) => n.startsWith('foojay-toolchains-plugin-'))
       .map((n) => n.slice('foojay-toolchains-plugin-'.length))),
   };

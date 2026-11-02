@@ -2,8 +2,11 @@
 #   * re-bakes js/templates/ (one snapshot per template branch) from the upstream Multiloader-Template
 #   * re-bakes js/versions-data.js (the version lists the page also fetches live)
 # and commits the result only if the whole verification passes:
-#   generator test suite (incl. byte-for-byte fidelity against upstream), UI interaction check,
-#   and a Gradle build of a generated project.
+#   1. verify  generator test suite (incl. byte-for-byte fidelity against every upstream branch) and UI check
+#   2. build   a Gradle build of the generated full_custom project for every template snapshot whose files
+#              changed (all of them on a manual run); the multiloader plugin picks the toolchain itself
+#              (Java 17 below 1.20.5, 21 below 26, 25 from 26.1), so every job has JDK 17, 21 and 25 available
+#   3. publish commit and push js/templates/ and js/versions-data.js
 #
 # GitHub cron runs in UTC: 00:00 UTC = 01:00 CET (winter) / 02:00 CEST (summer).
 name: Refresh template snapshot and version catalog
@@ -14,34 +17,36 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: refresh
   cancel-in-progress: false
 
 jobs:
-  refresh:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      upstream: ${{ steps.upstream.outputs.commit }}
     steps:
       - name: Check out generator
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # a plain clone, because the bake needs every version branch, not just the default one
       - name: Clone upstream template (all branches)
-        run: git clone --quiet https://github.com/Morthen-Mods/Multiloader-Template.git .upstream
+        id: upstream
+        run: |
+          git clone --quiet https://github.com/Morthen-Mods/Multiloader-Template.git .upstream
+          echo "commit=$(git -C .upstream rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          git -C .upstream branch -r
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
 
       - name: Bake template snapshots (one per version branch)
         run: python3 scripts/bake.py --source .upstream
@@ -50,31 +55,130 @@ jobs:
         run: python3 scripts/bake-versions.py --wait-ms 90000
 
       - name: Show what changed
-        run: git --no-pager diff --stat -- js/templates js/versions-data.js || true
+        run: git status --short -- js/templates js/versions-data.js
 
+      # also generates tests/out/build-<snapshot>/ and lists them for the build job
       - name: Generator test suite
-        run: python3 tests/run_tests.py --template .upstream
+        run: python3 tests/run_tests.py --template .upstream --build-matrix tests/out/build-matrix.json
 
       - name: UI interaction check
         run: python3 tests/run_ui_check.py
 
-      - name: Build a generated project
-        run: |
-          set -e
-          cd tests/out/full_custom
-          ./gradlew build compileTestmodJava compileGametestJava --no-daemon --console=plain
+      # the bake scripts stamp their output with the run time; only real content changes count
+      - name: Compare with the committed bundle
+        id: changes
+        run: python3 scripts/bundle-changed.py --github-output "$GITHUB_OUTPUT"
 
-      - name: Commit and push if anything changed
+      # the generated projects only depend on the template snapshots, not on the version catalog, so a
+      # scheduled run builds just the snapshots that changed; a manual run builds every one of them
+      - name: Select the projects to build
+        id: matrix
+        env:
+          SNAPSHOTS: ${{ steps.changes.outputs.snapshots }}
+          ALL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ "$ALL" = "true" ]; then
+            matrix=$(jq -c . tests/out/build-matrix.json)
+          else
+            matrix=$(jq -c --argjson changed "$SNAPSHOTS" '[.[] | select(.snapshot as $s | $changed | any(.[]; . == $s))]' tests/out/build-matrix.json)
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" | jq -r '"building: " + ([.[].project] | join(", ") | if . == "" then "nothing" else . end)'
+
+      - name: Upload the refreshed bundle
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle
+          path: |
+            js/templates/
+            js/versions-data.js
+          retention-days: 3
+
+      # tar keeps the executable bit of gradlew, which an artifact upload drops
+      - name: Pack the generated projects
+        if: steps.matrix.outputs.matrix != '[]'
+        env:
+          MATRIX: ${{ steps.matrix.outputs.matrix }}
+        run: tar -czf build-projects.tgz -C tests/out $(echo "$MATRIX" | jq -r '.[].project')
+
+      - name: Upload the generated projects
+        if: steps.matrix.outputs.matrix != '[]'
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-projects
+          path: build-projects.tgz
+          retention-days: 3
+
+  build:
+    needs: verify
+    if: needs.verify.outputs.matrix != '[]'
+    name: Gradle build ${{ matrix.minecraft }} (${{ matrix.branch }}, Java ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.verify.outputs.matrix) }}
+    steps:
+      - name: Download the generated projects
+        uses: actions/download-artifact@v8
+        with:
+          name: build-projects
+
+      - name: Unpack ${{ matrix.project }}
+        run: tar -xzf build-projects.tgz "${{ matrix.project }}"
+
+      # the last version is the default JAVA_HOME (Gradle itself); the plugin's toolchain request is served
+      # from the installed JDKs, see org.gradle.java.installations.fromEnv below
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+            25
+
+      - name: Build
+        working-directory: ${{ matrix.project }}
+        run: >-
+          ./gradlew ${{ matrix.tasks }}
+          --no-daemon --console=plain
+          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
+
+  publish:
+    needs: [verify, build]
+    # build is skipped when no snapshot changed; a version-catalog-only refresh is still committed
+    if: >-
+      ${{ !cancelled() && needs.verify.result == 'success' && needs.verify.outputs.changed == 'true'
+      && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out generator
+        uses: actions/checkout@v7
+
+      # the bake replaces the whole directory, so snapshots of removed branches must go as well
+      - name: Clear the old snapshots
+        run: rm -f js/templates/*.js
+
+      - name: Download the refreshed bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: bundle
+          path: js
+
+      - name: Commit and push
+        env:
+          UPSTREAM: ${{ needs.verify.outputs.upstream }}
         run: |
           set -e
-          # the bake scripts stamp their output with the run time; only commit real content changes
-          if ! python3 scripts/bundle-changed.py; then
-            git checkout -- js/templates js/versions-data.js
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          upstream=$(git -C .upstream rev-parse --short HEAD)
-          git add js/templates js/versions-data.js
-          git commit -m "Refresh bundled data (template @ ${upstream}, versions $(date -u +%Y-%m-%d))"
+          git add -A js/templates js/versions-data.js
+          git --no-pager diff --cached --stat
+          git commit -m "Refresh bundled data (template @ ${UPSTREAM}, versions $(date -u +%Y-%m-%d))"
           git push

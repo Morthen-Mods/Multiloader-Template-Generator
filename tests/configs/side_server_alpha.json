@@ -1,0 +1,23 @@
+{
+  "defaults": "ui",
+  "template": "1.21.11",
+  "config": {
+    "modId": "server_tweaks",
+    "modName": "Server Tweaks",
+    "modAuthor": "Tester",
+    "group": "dev.tester",
+    "basePackage": "dev.tester.server_tweaks",
+    "classPrefix": "ServerTweaks",
+    "rootProjectName": "ServerTweaks",
+    "loaders": {
+      "fabric": false,
+      "forge": true,
+      "neoforge": true
+    },
+    "modSide": "SERVER_ONLY",
+    "releaseType": "ALPHA",
+    "modrinthId": "AbCdEfGh"
+  },
+  "expectBranch": "1.21.11",
+  "expectCovered": true
+}

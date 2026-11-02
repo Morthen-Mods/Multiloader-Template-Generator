@@ -685,13 +685,15 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  function populateLicenses() {
-    const sel = $('#f-modLicense');
-    for (const l of ModGen.LICENSES) {
-      const o = document.createElement('option');
-      o.value = l.id;
-      o.textContent = l.label;
-      sel.appendChild(o);
+  function populateChoices() {
+    for (const [id, list] of [['#f-modLicense', ModGen.LICENSES], ['#f-modSide', ModGen.MOD_SIDES], ['#f-releaseType', ModGen.RELEASE_TYPES]]) {
+      const sel = $(id);
+      for (const l of list) {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.label;
+        sel.appendChild(o);
+      }
     }
   }
 
@@ -719,7 +721,7 @@
   }
 
   async function init() {
-    populateLicenses();
+    populateChoices();
     const first = resolveEntry(startupMinecraftVersion()).entry;
     try {
       await loadSnapshot(first.snapshot);

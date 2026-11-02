@@ -1,7 +1,7 @@
 {
   "defaults": "ui",
   "template": "1.21.1",
-  "expectBranch": "26.1",
+  "expectBranch": "1.21.2",
   "expectCovered": false,
   "config": {
     "modId": "retro_mod",

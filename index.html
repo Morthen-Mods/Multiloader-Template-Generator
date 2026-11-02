@@ -74,6 +74,11 @@
           <div class="error" data-error-for="modLicense"></div>
         </div>
         <div class="field">
+          <label for="f-modSide">Environment</label>
+          <select id="f-modSide" data-key="modSide" title="Where the mod has to be installed. Sets the environment of fabric.mod.json, clientSideOnly / displayTest in the Forge mods.toml and, when publishing, the Modrinth environment and CurseForge client/server tags (withModPublish side)."></select>
+          <div class="error" data-error-for="modSide"></div>
+        </div>
+        <div class="field">
           <label for="f-group">Maven group</label>
           <input type="text" id="f-group" class="mono" data-key="group" placeholder="com.example" spellcheck="false" title="Reverse-domain style, e.g. com.example.">
           <div class="error" data-error-for="group"></div>
@@ -267,6 +272,11 @@
         <div class="field" data-show-if="modPublish">
           <label for="f-curseforgeId">CurseForge project ID</label>
           <input type="text" id="f-curseforgeId" class="mono" data-key="curseforgeId" placeholder="e.g. 123456" spellcheck="false">
+        </div>
+        <div class="field" data-show-if="modPublish">
+          <label for="f-releaseType">Release type</label>
+          <select id="f-releaseType" data-key="releaseType" title="Release channel of the uploads (withModPublish type)."></select>
+          <div class="error" data-error-for="releaseType"></div>
         </div>
         <div class="field wide">
           <label for="f-sourcesUrl">Source repository URL</label>

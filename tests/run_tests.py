@@ -2,17 +2,24 @@
 """
 End-to-end tests for the generator.
 
-Runs tests/harness.html in headless Chrome for every tests/configs/*.json, decodes the
-produced ZIP, extracts it to tests/out/<name>/ and checks the result:
+Runs tests/harness.html in headless Chrome for every tests/configs/*.json, plus two checks per
+template branch derived from js/templates/manifest.js (so a new branch needs no new config):
+
+  * fidelity-<branch>  the template defaults of that branch must reproduce it
+  * build-<snapshot>   the full_custom configuration on each template snapshot; these are the
+                       projects the refresh workflow builds with Gradle (see --build-matrix)
+
+Every run decodes the produced ZIP, extracts it to tests/out/<name>/ and checks the result:
 
   * no upstream identifiers ("morthen", "template") leak into the output
   * loader / feature toggles add and remove exactly the expected files
   * gradlew is executable inside the ZIP
   * datagen .cache files are consistent with the generated data files
-  * the "fidelity" configs (pure template defaults) reproduce the upstream branches
+  * the fidelity checks (pure template defaults) reproduce the upstream branches
   * versions without a template of their own fall back to the expected branch
 
 Usage: tests/run_tests.py [--chrome PATH] [--template PATH_TO_UPSTREAM_CHECKOUT] [--only NAME]
+                         [--build-matrix FILE]
 Exit code is non-zero when any check fails.
 """
 import argparse
@@ -33,6 +40,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HARNESS = os.path.join(ROOT, "tests", "harness.html")
 CONFIG_DIR = os.path.join(ROOT, "tests", "configs")
 OUT_DIR = os.path.join(ROOT, "tests", "out")
+MANIFEST = os.path.join(ROOT, "js", "templates", "manifest.js")
+BUILD_BASE = "full_custom"   # the configuration every template snapshot is generated with for the Gradle build
 
 CHROME_CANDIDATES = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "chrome"]
 
@@ -218,6 +227,14 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
     r.check(("commonRunDirectory = true" in root_build) == cfg["commonRunDirectory"], "commonRunDirectory presence wrong")
     r.check(('requires("fabric-api")' in root_build) == (cfg["modPublish"] and loaders["fabric"]), "fabric-api publish dependency wrong")
     r.check(('optional("modmenu")' in root_build) == (cfg["modPublish"] and loaders["fabric"] and cfg["modMenu"]), "modmenu publish dependency wrong")
+    # environment and release type of the uploads: written only when publishing and not the plugin's default
+    side, rtype = cfg["modSide"], cfg["releaseType"]
+    custom_side = cfg["modPublish"] and side != "CLIENT_AND_SERVER"
+    r.check((f"\n        side = ModSide.{side}\n" in root_build) == custom_side, f"withModPublish side wrong for {side}")
+    r.check(root_build.startswith("import net.morthen.gradle.multiloader.api.ModSide\n\nplugins {") == custom_side, "ModSide import wrong")
+    r.check(("\n        type = " in root_build) == (cfg["modPublish"] and rtype != "STABLE"), f"withModPublish type presence wrong for {rtype}")
+    if cfg["modPublish"] and rtype != "STABLE":
+        r.check(f"\n        type = {rtype}\n" in root_build, f"withModPublish type is not {rtype}")
     r.check(('"fabric_api" to fabricApiVersion' in root_build) == loaders["fabric"], "fabric_api placeholder presence wrong")
     r.check(('"forge_version" to forgeVersion' in root_build) == loaders["forge"], "forge_version placeholder presence wrong")
     r.check(('"neoforge_version" to neoforgeVersion' in root_build) == needs_neoforge, "neoforge_version placeholder presence wrong")
@@ -274,8 +291,8 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
         r.check(("modmenu" in fb) == cfg["modMenu"], "modmenu presence wrong in fabric build")
         if cfg["modMenu"]:
             if obfuscated:
-                # Loom (remap) is applied after the script ran, so the dependency waits for the plugin
-                r.check('pluginManager.withPlugin("net.fabricmc.fabric-loom-remap") {\n    dependencies {\n'
+                # Loom (remap) is applied in the plugin's afterEvaluate, so the dependency waits for it
+                r.check('\nafterEvaluate {\n    dependencies {\n'
                         f'        "modImplementation"("com.terraformersmc:modmenu:{cfg["modMenuVersion"]}")' in fb,
                         f"modmenu must be a remapped modImplementation dependency on Minecraft {mc}")
             else:
@@ -283,10 +300,21 @@ def check_common(r, files, cfg, leak_check=True, template_assets=None):
                         f"modmenu must be a plain implementation dependency on Minecraft {mc}")
         r.check(f"// {modid}.classtweaker, from common or fabric\n    modifierType = ModifierType.CLASS_TWEAKER" in fb, "fabric classtweaker modifier missing")
         r.check("import net.morthen.gradle.multiloader.api.ModifierType\n" in fb, "ModifierType import missing")
+    if loaders["fabric"]:
+        expected_env = "client" if side == "CLIENT_ONLY" else "*"
+        r.check(fmj.get("environment") == expected_env, f"fabric.mod.json environment {fmj.get('environment')!r}, expected {expected_env!r} for {side}")
     if loaders["neoforge"]:
         toml = files["neoforge/src/main/resources/META-INF/neoforge.mods.toml"]["data"].decode()
         r.check(("[[mixins]]" in toml) == cfg["mixins"], "neoforge.mods.toml mixins presence wrong")
+        r.check("clientSideOnly" not in toml and "displayTest" not in toml, "NeoForge has no clientSideOnly / displayTest")
     if loaders["forge"]:
+        mods_toml = files["forge/src/main/resources/META-INF/mods.toml"]["data"].decode()
+        top_level = mods_toml.split("\n[", 1)[0]
+        r.check(("\nclientSideOnly = true\n" in top_level + "\n") == (side == "CLIENT_ONLY"), f"Forge clientSideOnly wrong for {side}")
+        display = {"SERVER_ONLY": "IGNORE_SERVER_VERSION", "CLIENT_OR_SERVER": "IGNORE_ALL_VERSION"}.get(side)
+        mods_block = re.search(r"^\[\[mods\]\]\n((?:[ \t]+\S[^\n]*\n)*)", mods_toml, re.M)
+        r.check(bool(mods_block) and ((f'displayTest = "{display}"' in mods_block.group(1)) if display else "displayTest" not in mods_toml),
+                f"Forge displayTest wrong for {side} (expected {display})")
         fb = files["forge/build.gradle.kts"]["data"].decode()
         r.check(("mixins = listOf(" in fb) == cfg["mixins"], "forge mixins presence wrong in forge build")
         if cfg["mixins"]:
@@ -396,6 +424,18 @@ def _compare_fidelity(r, files, template_dir):
         regenerated = {p for p in upstream if p == "build.gradle.kts" or p.endswith("/build.gradle.kts")} | {"gradle.properties"}
         ignore |= regenerated
         r.notes.append("branch still uses the pre-0.2.0 plugin DSL; build scripts and gradle.properties not compared")
+    settings = upstream.get("settings.gradle.kts", b"").decode(errors="replace")
+    included = {n.lstrip(":") for line in settings.splitlines() if "include" in line and not line.lstrip().startswith("//")
+                for n in re.findall(r'"([^"]+)"', line)}
+    orphans = sorted(d for d in ("datagen", "fabric", "forge", "neoforge")
+                     if included and d not in included and any(p.startswith(d + "/") for p in upstream))
+    if orphans:
+        # the branch keeps a project folder it does not include (forge/ on 1.21.2, which has no Forge build). The
+        # template defaults leave that project out, and the generator drops it together with its Gradle plugin,
+        # placeholders and gradle.properties entry, so those cannot match; everything else still has to
+        ignore |= {p for p in upstream if p.split("/", 1)[0] in orphans} | {"build.gradle.kts", "gradle.properties"}
+        r.notes.append(f"branch keeps {', '.join(d + '/' for d in orphans)} without including it; that folder, "
+                       "the root build script and gradle.properties not compared")
 
     def norm(path, data):
         if "/.cache/" in path:
@@ -434,22 +474,59 @@ def _compare_fidelity(r, files, template_dir):
             r.failures.append(f"fidelity: content differs: {p}\n{diff[:1500]}")
 
 
+def load_manifest():
+    with open(MANIFEST, encoding="utf-8") as fh:
+        text = fh.read()
+    m = re.search(r"window\.TEMPLATE_MANIFEST\s*=\s*(\{.*\});\s*$", text, re.S)
+    if not m:
+        raise SystemExit(f"cannot parse {os.path.relpath(MANIFEST, ROOT)}")
+    return json.loads(m.group(1))
+
+
+def branch_specs(manifest, build_config):
+    """The checks every template branch gets, in a stable order (default branch first)."""
+    entries = manifest["entries"]
+    order = sorted(entries, key=lambda k: (k != "default", [int(x) for x in re.findall(r"\d+", entries[k]["minecraftVersion"])], k))
+    specs = []
+    for key in order:
+        e = entries[key]
+        # "default" picks the default branch; a version picks the branch the app would use for it
+        specs.append((f"fidelity-{e['branch']}", {"defaults": "template", "template": "default" if key == "default" else e["minecraftVersion"],
+                                                  "config": {}, "checks": {"fidelity": True}, "expectBranch": e["branch"]}))
+    for key in order:
+        e = entries[key]
+        if e["snapshot"] != key:
+            continue  # same files as another branch (e.g. the default branch and the branch of its version)
+        # template defaults: the branch's own versions and projects, with the full_custom identity on top
+        specs.append((f"build-{key}", {"defaults": "template", "template": "default" if key == "default" else e["minecraftVersion"],
+                                       "config": dict(build_config), "expectBranch": e["branch"], "expectCovered": True,
+                                       "build": {"snapshot": key, "branch": e["branch"]}}))
+    return specs
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--chrome")
     ap.add_argument("--template", help="path to an upstream Multiloader-Template clone; branches are exported read-only for the fidelity test")
     ap.add_argument("--only", help="run just this config name")
+    ap.add_argument("--build-matrix", metavar="FILE", help="write the passing build-<snapshot> projects as a JSON list "
+                    "(project, snapshot, branch, minecraft, java, tasks) for the Gradle builds of the refresh workflow")
     args = ap.parse_args()
     chrome = find_chrome(args.chrome)
 
-    configs = sorted(f for f in os.listdir(CONFIG_DIR) if f.endswith(".json"))
-    if args.only:
-        configs = [c for c in configs if c[:-5] == args.only]
-    failed = 0
-    for cfg_file in configs:
-        name = cfg_file[:-5]
+    specs = []
+    for cfg_file in sorted(f for f in os.listdir(CONFIG_DIR) if f.endswith(".json")):
         with open(os.path.join(CONFIG_DIR, cfg_file), encoding="utf-8") as fh:
-            spec = json.load(fh)
+            specs.append((cfg_file[:-5], json.load(fh)))
+    build_config = next(spec for name, spec in specs if name == BUILD_BASE)["config"]
+    specs += branch_specs(load_manifest(), build_config)
+    if args.only:
+        specs = [(n, s) for n, s in specs if n == args.only]
+        if not specs:
+            sys.exit(f"no config or branch check named {args.only!r}")
+    failed = 0
+    build_matrix = []
+    for name, spec in specs:
         r = Result(name)
         try:
             status, zip_b64 = run_harness(chrome, {"defaults": spec.get("defaults", "ui"),
@@ -478,6 +555,10 @@ def main():
                 check_common(r, files, cfg, leak_check=not fidelity, template_assets=status.get("templateAssets", {}))
                 if fidelity:
                     check_fidelity(r, files, cfg, args.template, status.get("branch", "main"))
+                if spec.get("build") and r.ok():
+                    tasks = ["build"] + (["compileTestmodJava"] if cfg["testmod"] else []) + (["compileGametestJava"] if cfg["gametest"] else [])
+                    build_matrix.append(dict(spec["build"], project=name, minecraft=cfg["minecraftVersion"],
+                                             java=cfg["javaVersion"], tasks=" ".join(tasks)))
         except Exception as ex:  # noqa: BLE001
             r.failures.append(f"exception: {ex!r}")
         mark = "PASS" if r.ok() else "FAIL"
@@ -485,7 +566,12 @@ def main():
         for f in r.failures:
             print("    - " + f.replace("\n", "\n      "))
         failed += 0 if r.ok() else 1
-    print(f"\n{len(configs) - failed}/{len(configs)} configs passed")
+    print(f"\n{len(specs) - failed}/{len(specs)} configs passed")
+    if args.build_matrix:
+        os.makedirs(os.path.dirname(os.path.abspath(args.build_matrix)), exist_ok=True)
+        with open(args.build_matrix, "w", encoding="utf-8") as fh:
+            json.dump(build_matrix, fh, indent=1)
+        print(f"build matrix: {len(build_matrix)} projects -> {args.build_matrix}")
     return 1 if failed else 0
 
 

@@ -1,0 +1,14 @@
+{
+  "defaults": "ui",
+  "config": {
+    "modId": "hud_info",
+    "modName": "HUD Info",
+    "modAuthor": "Tester",
+    "group": "dev.tester",
+    "basePackage": "dev.tester.hud_info",
+    "classPrefix": "HudInfo",
+    "rootProjectName": "HudInfo",
+    "modSide": "CLIENT_OR_SERVER",
+    "modPublish": false
+  }
+}

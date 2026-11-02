@@ -41,6 +41,25 @@
     { id: 'NONE', label: 'No LICENSE file (add your own)', file: false },
   ];
 
+  // Where the mod has to be installed: the plugin's ModSide for the Modrinth / CurseForge upload (withModPublish
+  // side), mirrored into the loader metadata. Fabric's "server" means a dedicated server only, so a server-side mod
+  // that also works in singleplayer stays "*". Forge reads clientSideOnly (mod file) and displayTest ([[mods]]) on
+  // every supported version; NeoForge has neither key (a client-only NeoForge mod uses @Mod(dist = Dist.CLIENT)).
+  const MOD_SIDES = [
+    { id: 'CLIENT_AND_SERVER', label: 'Client and server', fabric: '*', forge: null },
+    { id: 'CLIENT_ONLY', label: 'Client only', fabric: 'client', forge: { clientSideOnly: true } },
+    { id: 'SERVER_ONLY', label: 'Server only (also in singleplayer)', fabric: '*', forge: { displayTest: 'IGNORE_SERVER_VERSION' } },
+    { id: 'CLIENT_OR_SERVER', label: 'Client or server (optional on the other side)', fabric: '*', forge: { displayTest: 'IGNORE_ALL_VERSION' } },
+  ];
+  const DEFAULT_MOD_SIDE = 'CLIENT_AND_SERVER';
+  // release type of the uploads (withModPublish type); ModPublishSpec has STABLE / BETA / ALPHA shortcuts
+  const RELEASE_TYPES = [
+    { id: 'STABLE', label: 'Release' },
+    { id: 'BETA', label: 'Beta' },
+    { id: 'ALPHA', label: 'Alpha' },
+  ];
+  const DEFAULT_RELEASE_TYPE = 'STABLE';
+
   // ---------------------------------------------------------------------------
   // Small utilities
   // ---------------------------------------------------------------------------
@@ -249,6 +268,16 @@
   // ---------------------------------------------------------------------------
   // Defaults
   // ---------------------------------------------------------------------------
+  /** Projects a settings script includes (include("a") or listOf("a", "b").forEach(::include)); null when it names none. */
+  function settingsIncludes(settings) {
+    const names = new Set();
+    for (const line of String(settings || '').split('\n')) {
+      if (/^\s*\/\//.test(line) || !/\binclude\b/.test(line)) continue;
+      for (const m of line.matchAll(/"([^"]+)"/g)) names.add(m[1].replace(/^:/, ''));
+    }
+    return names.size ? names : null;
+  }
+
   function templateDefaults(td) {
     const T = templateOf(td);
     const files = td.files || {};
@@ -272,8 +301,13 @@
     if (pluginDefault && compareDotted(pluginDefault, MIN_PLUGIN_VERSION) < 0) pluginDefault = MIN_PLUGIN_VERSION;
     // the 0.2.0 DSL opts in with commonRunDirectory; older branches always kept their runs in common/runs
     const newDsl = /multiloaderSettings\s*\{/.test(rootBuild);
+    const sideMatch = rootBuild.match(/\bside\s*=\s*ModSide\.([A-Z_]+)/);
+    const typeMatch = rootBuild.match(/\btype\s*=\s*(?:ReleaseType\.)?(STABLE|BETA|ALPHA)\b/);
     const commonRuns = newDsl ? /commonRunDirectory\s*=\s*true/.test(rootBuild) : true;
     const mc = props.minecraft_version || '';
+    // the projects the branch builds; a folder it keeps without including it (forge/ on 1.21.2) is not one of them
+    const included = settingsIncludes(settings);
+    const builds = (name) => !included || included.has(name);
 
     return {
       // identity
@@ -296,14 +330,16 @@
       fabricLoaderVersion: props.fabric_loader || '',
       forgeVersion: props.forge || '',
       // loaders & features
-      loaders: { fabric: true, forge: true, neoforge: true },
-      datagen: true,
+      loaders: { fabric: builds('fabric'), forge: builds('forge'), neoforge: builds('neoforge') },
+      datagen: builds('datagen'),
       gametest: true,
       testmod: true,
       mixins: true,
       modPublish: true,
       modrinthId: props.modrinth_id || '',
       curseforgeId: props.curseforge_id || '',
+      releaseType: typeMatch ? typeMatch[1] : DEFAULT_RELEASE_TYPE,
+      modSide: sideMatch && MOD_SIDES.some((s) => s.id === sideMatch[1]) ? sideMatch[1] : DEFAULT_MOD_SIDE,
       modMenu: !!modmenuMatch,
       modMenuVersion: modmenuMatch ? modmenuMatch[1] : '',
       // links
@@ -343,6 +379,9 @@
       curseforgeId: '',
       sourcesUrl: '',
       issuesUrl: '',
+      // every loader starts selected; the app switches off what the chosen Minecraft version has no build of
+      loaders: { fabric: true, forge: true, neoforge: true },
+      datagen: true,
     });
   }
 
@@ -435,6 +474,8 @@
       if (cfg[f] && !/^https?:\/\/\S+$/.test(cfg[f])) err(f, 'Must be an http(s) URL.');
     }
     if (!LICENSES.some((l) => l.id === cfg.modLicense) && !cfg.modLicense) err('modLicense', 'License is required.');
+    if (!MOD_SIDES.some((s) => s.id === cfg.modSide)) err('modSide', `Environment must be one of ${MOD_SIDES.map((s) => s.id).join(', ')}.`);
+    if (!RELEASE_TYPES.some((t) => t.id === cfg.releaseType)) err('releaseType', `Release type must be one of ${RELEASE_TYPES.map((t) => t.id).join(', ')}.`);
     return errors;
   }
 
@@ -484,6 +525,30 @@
     return p;
   }
 
+  function modSide(cfg) {
+    return MOD_SIDES.find((s) => s.id === cfg.modSide) || MOD_SIDES.find((s) => s.id === DEFAULT_MOD_SIDE);
+  }
+
+  /** clientSideOnly is a key of the mod file (before the first table), displayTest one of the [[mods]] entry. */
+  function applyForgeSide(text, forge) {
+    let t = text;
+    if (forge.clientSideOnly) {
+      if (/^clientSideOnly\s*=/m.test(t)) t = t.replace(/^clientSideOnly\s*=.*$/m, 'clientSideOnly = true');
+      else t = t.replace(/\n(?:[ \t]*\n)*(?=\[)/, (gap) => '\nclientSideOnly = true' + gap);
+    }
+    if (forge.displayTest) {
+      const line = `displayTest = "${forge.displayTest}"`;
+      if (/^[ \t]*displayTest\s*=/m.test(t)) t = t.replace(/^([ \t]*)displayTest\s*=.*$/m, `$1${line}`);
+      else {
+        t = t.replace(/^\[\[mods\]\][^\n]*\n(?:[ \t]+\S[^\n]*\n)*/m, (block) => {
+          const indent = (block.match(/\n([ \t]+)\S/) || [null, '    '])[1];
+          return `${block}${indent}${line}\n`;
+        });
+      }
+    }
+    return t;
+  }
+
   function rewriteText(path, text, ctx) {
     const { T, cfg, modId, modName, classPrefix, basePackage } = ctx;
     let t = text;
@@ -498,11 +563,19 @@
     t = replaceAll(t, `MOD_ID = "${T.modId}"`, `MOD_ID = "${modId}"`);
     t = replaceAll(t, `"${T.modId}:`, `"${modId}:`);
     t = replaceAll(t, `"${T.modId}_gametest:`, `"${modId}_gametest:`);
+    // resource paths mentioned in sources or comments follow the renamed files (see rewritePath)
+    t = replaceAll(t, `data/${T.modId}/`, `data/${modId}/`);
+    t = replaceAll(t, `data/${T.modId}_gametest/`, `data/${modId}_gametest/`);
 
     if (path === 'common/runs/server/server.properties') {
       t = t.replace(new RegExp('^(initial-enabled-packs=.*),' + escapeRegExp(T.modId) + '$', 'm'), `$1,${modId}`);
       t = t.replace(/^management-server-secret=.*$/m, 'management-server-secret=');
     }
+    const side = modSide(cfg);
+    if (path === 'fabric/src/main/resources/fabric.mod.json') {
+      t = t.replace(/("environment"\s*:\s*)"[^"]*"/, `$1"${side.fabric}"`);
+    }
+    if (path === 'forge/src/main/resources/META-INF/mods.toml' && side.forge) t = applyForgeSide(t, side.forge);
     if (!cfg.mixins) {
       if (/(^|\/)fabric\.mod\.json$/.test(path)) t = t.replace(/,\s*"mixins":\s*\[[^\]]*\]/, '');
       if (/neoforge\.mods\.toml$/.test(path)) t = t.replace(/\[\[mixins\]\]\s*\n\s*config\s*=\s*"[^"]*"\s*\n/g, '');
@@ -652,20 +725,27 @@ plugins {
       '    }',
     ]);
 
+    const imports = [];
     if (cfg.modPublish) {
-      const publish = ['    // Uploads to CurseForge (curseforge_id) and Modrinth (modrinth_id)'];
-      if (cfg.loaders.fabric) {
-        publish.push('    withModPublish {', '        dependencies {', '            fabric {', '                requires("fabric-api")');
-        if (cfg.modMenu) publish.push('                optional("modmenu")');
-        publish.push('            }', '        }', '    }');
-      } else {
-        publish.push('    withModPublish { }');
+      const spec = [];
+      if (cfg.releaseType !== DEFAULT_RELEASE_TYPE) spec.push(`        type = ${cfg.releaseType}`);
+      if (cfg.modSide !== DEFAULT_MOD_SIDE) {
+        imports.push('import net.morthen.gradle.multiloader.api.ModSide');
+        spec.push(`        side = ModSide.${cfg.modSide}`);
       }
-      sections.push(publish);
+      const deps = [];
+      if (cfg.loaders.fabric) {
+        deps.push('        dependencies {', '            fabric {', '                requires("fabric-api")');
+        if (cfg.modMenu) deps.push('                optional("modmenu")');
+        deps.push('            }', '        }');
+      }
+      const inner = [spec, deps].filter((b) => b.length).map((b) => b.join('\n')).join('\n\n');
+      sections.push(['    // Uploads to CurseForge (curseforge_id) and Modrinth (modrinth_id)',
+        inner ? `    withModPublish {\n${inner}\n    }` : '    withModPublish { }']);
     }
 
     const body = sections.filter((s) => s.length).map((s) => s.join('\n')).join('\n\n');
-    return `plugins {\n${P.join('\n')}\n}\n\n`
+    return (imports.length ? imports.join('\n') + '\n\n' : '') + `plugins {\n${P.join('\n')}\n}\n\n`
       + '// Shared settings for every subproject. Mod info and loader versions are read from gradle.properties.\n'
       + `multiloaderSettings {\n${body}\n}\n`;
   }
@@ -705,11 +785,9 @@ plugins {
         out += `\ndependencies {\n    implementation(${dependency})\n}\n`;
       } else {
         // Below 26 the game is obfuscated and mod dependencies go through Loom's remapping configurations.
-        // The plugin applies fabric-loom-remap only after this script has run, so they do not exist yet here.
-        out += '\n// fabric-loom-remap is applied by the multiloader plugin after this script has run,\n'
-          + '// so remapped mod dependencies are added once it is there\n'
-          + 'pluginManager.withPlugin("net.fabricmc.fabric-loom-remap") {\n'
-          + `    dependencies {\n        "modImplementation"(${dependency})\n    }\n}\n`;
+        // The plugin applies fabric-loom-remap in its own afterEvaluate, so they do not exist yet while this
+        // script runs; an afterEvaluate registered here runs after the plugin's (the template's 1.21.x branches)
+        out += `\nafterEvaluate {\n    dependencies {\n        "modImplementation"(${dependency})\n    }\n}\n`;
       }
     }
     return out;
@@ -989,7 +1067,7 @@ prior written consent of the copyright holder.
   }
 
   global.ModGen = {
-    LICENSES, JAVA_KEYWORDS, MIN_MINECRAFT, MIN_PLUGIN_VERSION, templateOf, resolveTemplate,
+    LICENSES, MOD_SIDES, RELEASE_TYPES, JAVA_KEYWORDS, MIN_MINECRAFT, MIN_PLUGIN_VERSION, templateOf, resolveTemplate,
     templateDefaults, uiDefaults, normalizeConfig, validate, generate, buildZip,
     suggestModId, suggestClassPrefix, suggestRootProjectName, suggestPackage, suggestIssuesUrl,
     compareMinecraft, isRelease, isSupportedMinecraft, isLegacy, isObfuscated, javaFor, needsNeoform, needsNeoforge,
